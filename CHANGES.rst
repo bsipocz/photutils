@@ -40,6 +40,9 @@ New Features
   - Added new ``DAOGroup`` class for grouping overlapping sources based on
     daophot GROUP algorithm. [#369]
 
+  - Added the option ``param_uncert`` so that users can easily get
+    uncertainties on fitted parameters. [#358]
+
 
 API changes
 ^^^^^^^^^^^
