@@ -26,6 +26,7 @@ env:
         - ASTROPY_VERSION=stable
         - CONDA_DEPENDENCIES='Cython scipy scikit-image matplotlib'
         - PIP_DEPENDENCIES=''
+        - DEBUG='True'
 
     matrix:
 
@@ -84,7 +85,7 @@ matrix:
 
 install:
 
-    - git clone git://github.com/astropy/ci-helpers.git
+    - git clone -b sphinx_wa_mpl_fclist_warning --single-branch git://github.com/bsipocz/ci-helpers.git
     - source ci-helpers/travis/setup_conda_$TRAVIS_OS_NAME.sh
 
     # Make sure that interactive matplotlib backends work
