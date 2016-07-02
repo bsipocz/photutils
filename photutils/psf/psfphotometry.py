@@ -124,6 +124,24 @@ class NStarPSFPhotometry(PSFPhotometryBase):
             raise ValueError('fitshape is not defined properly, '
                              'received fitshape = {}'.format(fitshape))
 
+    def __call__(self, image):
+        """
+        Parameters
+        ----------
+        image : array-like, ImageHDU, HDUList
+            image to perform photometry
+        
+        Returns
+        -------
+        outtab : astropy.table.Table
+            Table with the photometry results, i.e., centroids and flux
+            estimations.
+        residual_image : array-like, ImageHDU, HDUList
+            Residual image calculated by subtracting the fitted sources
+            and the original image.
+        """
+
+        return self.do_photometry(image)
 
     def nstar(self, image, groups, fitshape, bkg, psf_model, fitter):
         """
@@ -195,22 +213,6 @@ class NStarPSFPhotometry(PSFPhotometryBase):
         return result_tab, image
     
     def do_photometry(self, image):
-        """
-        Parameters
-        ----------
-        image : array-like, ImageHDU, HDUList
-            image to perform photometry
-        
-        Returns
-        -------
-        outtab : astropy.table.Table
-            Table with the photometry results, i.e., centroids and flux
-            estimations.
-        residual_image : array-like, ImageHDU, HDUList
-            Residual image calculated by subtracting the fitted sources
-            and the original image
-        """
-        
         # prepare output table
         outtab = Table([[], [], [], [], []],
                        names=('id', 'x_fit', 'y_fit', 'flux_fit',
@@ -252,3 +254,4 @@ class NStarPSFPhotometry(PSFPhotometryBase):
             n += 1
 
         return outtab, residual_image
+
