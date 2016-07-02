@@ -40,6 +40,7 @@ New Features
     improve performance. [#361]
 
 - ``photutils.psf``
+
   - Added new ``DAOGroup`` class for grouping overlapping sources based on
     daophot GROUP algorithm. [#369]
 
