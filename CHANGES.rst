@@ -39,6 +39,10 @@ New Features
   - SegmentationImage properties are now cached to significantly
     improve performance. [#361]
 
+- ``photutils.psf``
+  - Added new ``DAOGroup`` class for grouping overlapping sources based on
+    daophot GROUP algorithm. [#369]
+
 
 API changes
 ^^^^^^^^^^^
