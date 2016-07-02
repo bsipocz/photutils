@@ -1,9 +1,9 @@
-
+# Licensed under a 3-clause BSD style license - see LICENSE.rst
 class PSFPhotometryBase(object):
     __metaclass__ = abc.ABCMeta
     
     @abc.abstractmethod
-    def perform_photometry(self):
+    def do_photometry(self):
         pass
 
 class NStarPSFPhotometry(PSFPhotometryBase):
@@ -15,7 +15,7 @@ class NStarPSFPhotometry(PSFPhotometryBase):
     SUBTRACT, FIND until no more stars are detected.
     """
 
-    def __init__(self, find, group, bkg, psf_model, fitter):
+    def __init__(self, find, group, bkg, psf_model, fitter, niters, fitshape):
         """
         Attributes
         ----------
@@ -24,6 +24,11 @@ class NStarPSFPhotometry(PSFPhotometryBase):
         bkg : an instance of any BackgroundBase2D (?) subclasses
         psf_model : Fittable2DModel instance
         fitter : Fitter instance
+        niters : int
+            number of iterations for the loop FIND, GROUP, SUBTRACT, NSTAR
+        fitshape : array-like
+            rectangular shape around the center of a star which will be used
+            to collect the data to do the fitting
         """
 
         self.find = find
@@ -86,13 +91,39 @@ class NStarPSFPhotometry(PSFPhotometryBase):
     def fitter(self):
         return self._fitter
 
-    @fitter.stter
+    @fitter.setter
     def fitter(self, fitter):
         if isinstance(fitter, Fitter):
             self._fitter = fitter
         else:
             raise ValueError('fitter is not a valid astropy Fitter, '
                              'received {}'.format(type(fitter)))
+    
+    @property
+    def niters(self):
+        return self._niters
+
+    @niters.setter
+    def niters(self, niters):
+        if isinstance(niters, int) and niters > 0:
+            self._niters = niters
+        else:
+            raise ValueError('niters is not defined properly, '
+                             'received niters = {}'.format(niters))
+
+    @property
+    def fitshape(self):
+        return self._fitshape
+
+    @fitshape.setter
+    def fitshape(self, fitshape):
+        fitshape = np.asarray(fitshape)
+        if len(fitshape) == 2:
+            self._fitshape = fitshape
+        else:
+            raise ValueError('fitshape is not defined properly, '
+                             'received fitshape = {}'.format(fitshape))
+
 
     def nstar(self, image, groups, fitshape, bkg, psf_model, fitter):
         """
@@ -163,18 +194,13 @@ class NStarPSFPhotometry(PSFPhotometryBase):
                 n = n + 1
         return result_tab, image
     
-    def perform_photometry(self, image, niters, fitshape):
+    def do_photometry(self, image):
         """
         Parameters
         ----------
         image : array-like, ImageHDU, HDUList
             image to perform photometry
-        niters : int
-            number of iterations for the loop FIND, GROUP, SUBTRACT, NSTAR
-        fitshape : tuple
-            rectangular shape around the center of a star which will be used
-            to collect the data to do the fitting
-
+        
         Returns
         -------
         outtab : astropy.table.Table
@@ -200,7 +226,7 @@ class NStarPSFPhotometry(PSFPhotometryBase):
         n = 1
         # iterate until no more sources are found or the number of iterations
         # has been reached
-        while(n <= niters and len(sources) > 0):
+        while(n <= self.niters and len(sources) > 0):
             # prepare input table
             intab = Table(names=['id', 'x_0', 'y_0', 'flux_0'],
                           data=[sources['id'], sources['xcentroid'],
@@ -212,7 +238,7 @@ class NStarPSFPhotometry(PSFPhotometryBase):
             # fit the sources within in each group in a simultaneous manner
             # and get the residual image
             curr_tab, residual_image = self.nstar(residual_image, groups,
-                                                  fitshape, self.bkg,
+                                                  self.fitshape, self.bkg,
                                                   self.psf_model, self.fitter)
 
             # marks in which iteration those sources were fitted
