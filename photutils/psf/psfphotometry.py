@@ -11,18 +11,18 @@ class NStarPSFPhotometry(PSFPhotometryBase):
     This is an implementation of the NSTAR algorithm proposed by Stetson
     (1987) to perform point spread function photometry in crowded fields.
 
-    This implementation basically relys on the loop FIND, GROUP, NSTAR,
+    This class basically implements the loop FIND, GROUP, NSTAR,
     SUBTRACT, FIND until no more stars are detected.
     """
 
-    def __init__(self, find, group, bkg, psf_model, fitter, niters, fitshape):
+    def __init__(self, find, group, bkg, psf, fitter, niters, fitshape):
         """
         Attributes
         ----------
         find : an instance of any StarFinderBase subclasses
         group : an instance of any GroupStarsBase subclasses
         bkg : an instance of any BackgroundBase2D (?) subclasses
-        psf_model : Fittable2DModel instance
+        psf : Fittable2DModel instance
         fitter : Fitter instance
         niters : int
             number of iterations for the loop FIND, GROUP, SUBTRACT, NSTAR
@@ -34,8 +34,12 @@ class NStarPSFPhotometry(PSFPhotometryBase):
         self.find = find
         self.group = group
         self.bkg = bkg
-        self.psf_model = psf_model
+        self.psf = psf
         self.fitter = fitter
+        self.niters = niters
+        self.fitshape = fitshape
+
+        from .funcs import subtract_psf
 
     @property
     def find(self):
@@ -75,17 +79,17 @@ class NStarPSFPhotometry(PSFPhotometryBase):
                              .format(type(bkg)))
     
     @property
-    def psf_model(self):
-        return self._psf_model
+    def psf(self):
+        return self._psf
 
-    @psf_model.setter
-    def psf_model(self, psf_model):
-        if isinstance(psf_model, Fittable2DModel):
-            self._psf_model = psf_model
+    @psf.setter
+    def psf(self, psf):
+        if isinstance(psf, Fittable2DModel):
+            self._psf = psf_model
         else:
             raise ValueError('psf_model is expected to be an instance of '
                              'Fittable2DModel, received {}.'\
-                             .format(type(fitter)))
+                             .format(type(psf)))
 
     @property
     def fitter(self):
@@ -118,7 +122,7 @@ class NStarPSFPhotometry(PSFPhotometryBase):
     @fitshape.setter
     def fitshape(self, fitshape):
         fitshape = np.asarray(fitshape)
-        if len(fitshape) == 2:
+        if len(fitshape) == 2 and np.all(fitshape) > 0:
             self._fitshape = fitshape
         else:
             raise ValueError('fitshape is not defined properly, '
@@ -143,9 +147,9 @@ class NStarPSFPhotometry(PSFPhotometryBase):
 
         return self.do_photometry(image)
 
-    def nstar(self, image, groups, fitshape, bkg, psf_model, fitter):
+    def _nstar(self, image, star_groups):
         """
-        Fit, as appropriate, a compound or single model to the given `groups` of
+        Fit, as appropriate, a compound or single model to a given `groups` of
         stars. Groups are fitted sequentially from the smallest to the biggest. In
         each iteration, `image` is subtracted by the previous fitted group. 
         
@@ -153,24 +157,9 @@ class NStarPSFPhotometry(PSFPhotometryBase):
         ----------
         image : numpy.ndarray
             Background-subtracted image.
-        groups : list of `~astropy.table.Table`
+        star_groups : list of `~astropy.table.Table`
             Each `~astropy.table.Table` in this list corresponds to a group of
             mutually overlapping starts.
-        shape : tuple
-            Shape of a rectangular region around the center of an isolated source.
-        fitter : `~astropy.modeling.fitting.Fitter` instance
-            An instance of an `~astropy.modeling.fitting.Fitter`
-            See `~astropy.modeling.fitting` for details about fitters.
-        psf_model : `~astropy.modeling.Fittable2DModel` 
-            The PSF/PRF analytical model. This model must have centroid and flux
-            as parameters.
-        weights : numpy.ndarray
-            Weights used in the fitting procedure.
-        psf_kwargs : dict
-            Fixed parameters to be passed to `psf_model`.
-        plot_regions : boolean
-            If True, plot the regions, which were used to fit each group, to the
-            current gca.
 
         Return
         ------
@@ -180,44 +169,123 @@ class NStarPSFPhotometry(PSFPhotometryBase):
             Residual image.
         """
         
-        result_tab = Table([[], [], [], [],],
-                           names=('id', 'x_fit', 'y_fit', 'flux_fit'),
-                           dtype=('i4', 'f8', 'f8', 'f8'))
-        models_order = _get_models_order(groups) 
-        while len(models_order) > 0:
-            curr_order = np.min(models_order)
+        result_tab = Table([[], [], [], [], []],
+                           names=('id', 'group_id', 'x_fit', 'y_fit',
+                                  'flux_fit'),
+                           dtype=('i4', 'i4', 'f8', 'f8', 'f8'))
+
+        star_groups = star_groups.group_by('group_id')
+        
+        groups_order = []
+        for g in star_groups.groups:
+            groups_order.append(len(g))
+
+        while len(groups_length) > 0:
+            curr_order = np.min(groups_order)
             n = 0
-            N = len(models_order)
+            N = len(groups_order)
             while(n < N):
-                if curr_order == len(groups[n]):
-                    group_psf = _get_group_psf(psf_model, groups[n], **psf_kwargs)
-                    x, y, data = _extract_shape_and_data(shape, groups[n], image)
-                    fitted_model = _call_fitter(fitter, group_psf, x, y, data,
-                                                weights)
-                    param_table = _model_params_to_table(fitted_model, groups[n])
+                if curr_order == len(star_groups.groups[n]):
+                    group_psf = _create_sum_psf_model(star_groups.groups[n])
+                    x, y, data = _extract_shape_and_data(self.fitshape,
+                                                         star_groups.groups[n],
+                                                         image)
+                    fit_model = self.fitter(self.psf, x, y, data)
+                    param_table = _model_params2table(fit_model,
+                                                      star_groups.groups[n])
                     result_tab = vstack([result_tab, param_table])
-                    image = subtract_psf(image, psf_model(**psf_kwargs),
-                                         param_table)
-                    #image = _subtract_psf(image, x, y, fitted_model)
-                    models_order.remove(curr_order)
-                    del groups[n]
+                    image = subtract_psf(image, self.psf, param_table)
                     N = N - 1
-                    if plot_regions: 
-                        patch = _show_region([(np.min(x), np.min(y)),
-                                              (np.min(x), np.max(y)),
-                                              (np.max(x), np.max(y)),
-                                              (np.max(x), np.min(y)),
-                                              (np.min(x), np.min(y)),])
-                        plt.gca().add_patch(patch)
-                n = n + 1
+                n += 1
         return result_tab, image
+
+    def _model_params2table(fit_model, star_group):
+    """
+    Place fitted parameters into an astropy table.
+    
+    Parameters
+    ----------
+    fit_model : Fittable2DModel
+    star_group : ~astropy.table.Table
+    
+    Returns
+    -------
+    param_tab : ~astropy.table.Table
+        Table that contains the fitted parameters.
+    """
+
+    param_tab = Table([[], [], [], [], []],
+                      names=('id', 'group_id', 'x_fit','y_fit','flux_fit'),
+                      dtype=('i4', 'i4', 'f8', 'f8', 'f8'))
+    for i in range(np.size(fit_model)):
+        param_table.add_row([[star_group['id'][i]],
+                             [star_group['group_id'][i]],
+                             [getattr(fit_model,'x_0_'+str(i)).value],
+                             [getattr(fit_model, 'y_0_'+str(i)).value],
+                             [getattr(fit_model, 'flux_'+str(i)).value]])
+    return param_tab
+
+    def _extract_shape_and_data(shape, star_group, image):
+    """
+    Parameters
+    ----------
+    shape : tuple
+        Shape of a rectangular region around the center of an isolated source.
+    star_group : `astropy.table.Table`
+        Group of stars
+    image : numpy.ndarray
+
+    Returns
+    -------
+    x, y : numpy.mgrid
+        All coordinate pairs (x,y) in a rectangular region which encloses all
+        sources of the given group
+    image : numpy.ndarray
+        Pixel value
+    """
+
+    xmin = int(np.around(np.min(star_group['x_0'])) - shape[0])
+    xmax = int(np.around(np.max(star_group['x_0'])) + shape[0])
+    ymin = int(np.around(np.min(star_group['y_0'])) - shape[1])
+    ymax = int(np.around(np.max(star_group['y_0'])) + shape[1])
+    y, x = np.mgrid[ymin:ymax+1, xmin:xmax+1]
+
+    return x, y, image[ymin:ymax+1, xmin:xmax+1]
+
+    def _create_sum_psf_model(self, star_group):
+        """
+        This function constructs a joint psf model which consists in a
+        sum of `self.psf` whose parameters are given in `star_group`.
+
+        Parameters
+        ----------
+        star_group : `~astropy.table.Table`
+            Table from which the compound PSF will be constructed.
+            It must have columns named as `x_0`, `y_0`, and `flux_0`.
+        
+        Returns
+        -------
+        sum_psf : CompoundModel
+            `CompoundModel` instance which is a sum of the given PSF
+            models.
+        """
+
+        sum_psf = self.psf(sigma=self.psf.sigma.value,
+                           flux=star_group['flux_0'][0],
+                           x_0=star_group['x_0'][0], y_0=star_group['y_0'][0])
+        for i in range(len(group) - 1):
+            sum_psf += self.psf(sigma=self.psf.sigma.value,
+                                flux=star_group['flux_0'][i+1],
+                                x_0=star_group['x_0'][i+1],
+                                y_0=star_group['y_0'][i+1])
+        return sum_psf
     
     def do_photometry(self, image):
         # prepare output table
-        outtab = Table([[], [], [], [], []],
-                       names=('id', 'x_fit', 'y_fit', 'flux_fit',
+        outtab = Table([[], [], [], [], [], []],
+                       names=('id', 'group_id', 'x_fit', 'y_fit', 'flux_fit',
                               'iter_detected'),
-                       dtype=('i4','f8','f8','f8','i4'))
+                       dtype=('i4', 'i4', 'f8', 'f8', 'f8', 'i4'))
 
         # make a copy of the input image
         residual_image = image.copy()
@@ -235,23 +303,20 @@ class NStarPSFPhotometry(PSFPhotometryBase):
                           sources['ycentroid'], sources['flux']])
 
             # find groups of overlapping sources
-            groups = self.group(intab)
+            star_groups = self.group(intab)
 
             # fit the sources within in each group in a simultaneous manner
             # and get the residual image
-            curr_tab, residual_image = self.nstar(residual_image, groups,
-                                                  self.fitshape, self.bkg,
-                                                  self.psf_model, self.fitter)
+            tab, residual_image = self.nstar(residual_image, groups)
 
-            # marks in which iteration those sources were fitted
-            curr_tab['iter_detected'] = n
+            # mark in which iteration those sources were fitted
+            tab['iter_detected'] = np.int(n*np.ones(tab['x_fit'].shape))
 
             # populate output table
-            outtab = vstack([outtab, curr_tab])
+            outtab = vstack([outtab, tab])
             
             # find remaining sources in the residual image
             sources = self.find(residual_image)
             n += 1
 
         return outtab, residual_image
-
