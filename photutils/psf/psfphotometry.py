@@ -200,62 +200,62 @@ class NStarPSFPhotometry(PSFPhotometryBase):
         return result_tab, image
 
     def _model_params2table(fit_model, star_group):
-    """
-    Place fitted parameters into an astropy table.
-    
-    Parameters
-    ----------
-    fit_model : Fittable2DModel
-    star_group : ~astropy.table.Table
-    
-    Returns
-    -------
-    param_tab : ~astropy.table.Table
-        Table that contains the fitted parameters.
-    """
+        """
+        Place fitted parameters into an astropy table.
+        
+        Parameters
+        ----------
+        fit_model : Fittable2DModel
+        star_group : ~astropy.table.Table
+        
+        Returns
+        -------
+        param_tab : ~astropy.table.Table
+            Table that contains the fitted parameters.
+        """
 
-    param_tab = Table([[], [], [], [], []],
-                      names=('id', 'group_id', 'x_fit','y_fit','flux_fit'),
-                      dtype=('i4', 'i4', 'f8', 'f8', 'f8'))
-    for i in range(np.size(fit_model)):
-        param_table.add_row([[star_group['id'][i]],
-                             [star_group['group_id'][i]],
-                             [getattr(fit_model,'x_0_'+str(i)).value],
-                             [getattr(fit_model, 'y_0_'+str(i)).value],
-                             [getattr(fit_model, 'flux_'+str(i)).value]])
-    return param_tab
+        param_tab = Table([[], [], [], [], []],
+                          names=('id', 'group_id', 'x_fit','y_fit','flux_fit'),
+                          dtype=('i4', 'i4', 'f8', 'f8', 'f8'))
+        for i in range(np.size(fit_model)):
+            param_table.add_row([[star_group['id'][i]],
+                                 [star_group['group_id'][i]],
+                                 [getattr(fit_model,'x_0_'+str(i)).value],
+                                 [getattr(fit_model, 'y_0_'+str(i)).value],
+                                 [getattr(fit_model, 'flux_'+str(i)).value]])
+        return param_tab
 
     def _extract_shape_and_data(shape, star_group, image):
-    """
-    Parameters
-    ----------
-    shape : tuple
-        Shape of a rectangular region around the center of an isolated source.
-    star_group : `astropy.table.Table`
-        Group of stars
-    image : numpy.ndarray
+        """
+        Parameters
+        ----------
+        shape : tuple
+            Shape of a rectangular region around the center of an isolated source.
+        star_group : `astropy.table.Table`
+            Group of stars
+        image : numpy.ndarray
 
-    Returns
-    -------
-    x, y : numpy.mgrid
-        All coordinate pairs (x,y) in a rectangular region which encloses all
-        sources of the given group
-    image : numpy.ndarray
-        Pixel value
-    """
+        Returns
+        -------
+        x, y : numpy.mgrid
+            All coordinate pairs (x,y) in a rectangular region which encloses all
+            sources of the given group
+        image : numpy.ndarray
+            Pixel value
+        """
 
-    xmin = int(np.around(np.min(star_group['x_0'])) - shape[0])
-    xmax = int(np.around(np.max(star_group['x_0'])) + shape[0])
-    ymin = int(np.around(np.min(star_group['y_0'])) - shape[1])
-    ymax = int(np.around(np.max(star_group['y_0'])) + shape[1])
-    y, x = np.mgrid[ymin:ymax+1, xmin:xmax+1]
+        xmin = int(np.around(np.min(star_group['x_0'])) - shape[0])
+        xmax = int(np.around(np.max(star_group['x_0'])) + shape[0])
+        ymin = int(np.around(np.min(star_group['y_0'])) - shape[1])
+        ymax = int(np.around(np.max(star_group['y_0'])) + shape[1])
+        y, x = np.mgrid[ymin:ymax+1, xmin:xmax+1]
 
-    return x, y, image[ymin:ymax+1, xmin:xmax+1]
+        return x, y, image[ymin:ymax+1, xmin:xmax+1]
 
     def _create_sum_psf_model(self, star_group):
         """
-        This function constructs a joint psf model which consists in a
-        sum of `self.psf` whose parameters are given in `star_group`.
+        Construct a joint psf model which consists in a sum of `self.psf`
+        whose parameters are given in `star_group`.
 
         Parameters
         ----------
