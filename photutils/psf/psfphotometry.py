@@ -39,8 +39,6 @@ class NStarPSFPhotometry(PSFPhotometryBase):
         self.niters = niters
         self.fitshape = fitshape
 
-        from .funcs import subtract_psf
-
     @property
     def find(self):
         return self._find
@@ -318,5 +316,4 @@ class NStarPSFPhotometry(PSFPhotometryBase):
             # find remaining sources in the residual image
             sources = self.find(residual_image)
             n += 1
-
         return outtab, residual_image
