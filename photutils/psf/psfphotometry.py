@@ -1,10 +1,27 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
+"""Module which provides classes to perform PSF Photometry"""
+
+from future import division
+import abc
+import numpy as np
+from astropy.table import Table, vstack
+from photutils.psf import subtract_psf
+from photutils.detection import StarFinderBase
+from photutils.psf import GroupStarsBase
+from photutils.background import BackgroundBase2D
+from astropy.modeling import Fittable2DModel
+
+
+__all__ = ['PSFPhotmetryBase, NStarPSFPhotometry']
+
+
 class PSFPhotometryBase(object):
     __metaclass__ = abc.ABCMeta
     
     @abc.abstractmethod
     def do_photometry(self):
         pass
+
 
 class NStarPSFPhotometry(PSFPhotometryBase):
     """
@@ -39,68 +56,6 @@ class NStarPSFPhotometry(PSFPhotometryBase):
         self.niters = niters
         self.fitshape = fitshape
 
-    @property
-    def find(self):
-        return self._find
-    
-    @find.setter
-    def find(self, find):
-        if isinstance(find, StarFinderBase)
-            self._find = find
-        else:
-            raise ValueError('find is expected to be an instance of '
-                             'StarFinderBase, received {}'.format(type(find)))
-    @property
-    def group(self):
-        return self._group
-
-    @group.setter
-    def group(self, group):
-        if isinstance(group, GroupStarsBase):
-            self._group = group
-        else:
-            raise ValueError('group is expected to be an instance of '
-                             'GroupStarsBase, received {}.'.\
-                             format(type(group)))
-    
-    @property
-    def bkg(self)
-        return self.bkg
-
-    @background.setter
-    def bkg(self, bkg):
-        if isinstance(bkg, BackgroundBase2D):
-            self._background = background
-        else:
-            raise ValueError('bkg is expected to be an instance of '
-                             'BackgroundBase2D, received {}.'\
-                             .format(type(bkg)))
-    
-    @property
-    def psf(self):
-        return self._psf
-
-    @psf.setter
-    def psf(self, psf):
-        if isinstance(psf, Fittable2DModel):
-            self._psf = psf_model
-        else:
-            raise ValueError('psf_model is expected to be an instance of '
-                             'Fittable2DModel, received {}.'\
-                             .format(type(psf)))
-
-    @property
-    def fitter(self):
-        return self._fitter
-
-    @fitter.setter
-    def fitter(self, fitter):
-        if isinstance(fitter, Fitter):
-            self._fitter = fitter
-        else:
-            raise ValueError('fitter is not a valid astropy Fitter, '
-                             'received {}'.format(type(fitter)))
-    
     @property
     def niters(self):
         return self._niters
