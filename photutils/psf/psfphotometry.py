@@ -1,18 +1,17 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 """Module which provides classes to perform PSF Photometry"""
 
-from future import division
 import abc
 import numpy as np
 from astropy.table import Table, vstack
 from photutils.psf import subtract_psf
 from photutils.detection import StarFinderBase
-from photutils.psf import GroupStarsBase
+from photutils.psf.groupstars import GroupStarsBase
 from photutils.background import BackgroundBase2D
 from astropy.modeling import Fittable2DModel
 
 
-__all__ = ['PSFPhotmetryBase, NStarPSFPhotometry']
+__all__ = ['PSFPhotometryBase', 'NStarPSFPhotometry']
 
 
 class PSFPhotometryBase(object):
@@ -56,30 +55,27 @@ class NStarPSFPhotometry(PSFPhotometryBase):
         self.niters = niters
         self.fitshape = fitshape
 
-    @property
-    def niters(self):
-        return self._niters
-
-    @niters.setter
-    def niters(self, niters):
-        if isinstance(niters, int) and niters > 0:
-            self._niters = niters
-        else:
-            raise ValueError('niters is not defined properly, '
-                             'received niters = {}'.format(niters))
-
-    @property
-    def fitshape(self):
-        return self._fitshape
-
-    @fitshape.setter
-    def fitshape(self, fitshape):
-        fitshape = np.asarray(fitshape)
-        if len(fitshape) == 2 and np.all(fitshape) > 0:
-            self._fitshape = fitshape
-        else:
-            raise ValueError('fitshape is not defined properly, '
-                             'received fitshape = {}'.format(fitshape))
+        @property
+        def niters(self):
+            return self._niters
+        @niters.setter
+        def niters(self, niters):
+            if isinstance(niters, int) and niters > 0:
+                self._niters = niters
+            else:
+                raise ValueError('niters is not defined properly, '
+                                 'received niters = {}'.format(niters))
+        @property
+        def fitshape(self):
+            return self._fitshape
+        @fitshape.setter
+        def fitshape(self, fitshape):
+            fitshape = np.asarray(fitshape)
+            if len(fitshape) == 2 and np.all(fitshape) > 0:
+                self._fitshape = fitshape
+            else:
+                raise ValueError('fitshape is not defined properly, '
+                                 'received fitshape = {}'.format(fitshape))
 
     def __call__(self, image):
         """
@@ -133,26 +129,27 @@ class NStarPSFPhotometry(PSFPhotometryBase):
         for g in star_groups.groups:
             groups_order.append(len(g))
 
-        while len(groups_length) > 0:
+        N = len(groups_order)
+        while N > 0:
             curr_order = np.min(groups_order)
             n = 0
             N = len(groups_order)
             while(n < N):
                 if curr_order == len(star_groups.groups[n]):
-                    group_psf = _create_sum_psf_model(star_groups.groups[n])
-                    x, y, data = _extract_shape_and_data(self.fitshape,
-                                                         star_groups.groups[n],
-                                                         image)
-                    fit_model = self.fitter(self.psf, x, y, data)
-                    param_table = _model_params2table(fit_model,
-                                                      star_groups.groups[n])
+                    group_psf = self._create_sum_psf_model(star_groups.groups[n])
+                    x, y, data = self._extract_shape_and_data(shape=self.fitshape,
+                                                              star_group=star_groups.groups[n],
+                                                              image=image)
+                    fit_model = self.fitter(group_psf, x, y, data)
+                    param_table = self._model_params2table(fit_model,
+                                                           star_groups.groups[n])
                     result_tab = vstack([result_tab, param_table])
                     image = subtract_psf(image, self.psf, param_table)
                     N = N - 1
                 n += 1
         return result_tab, image
 
-    def _model_params2table(fit_model, star_group):
+    def _model_params2table(self, fit_model, star_group):
         """
         Place fitted parameters into an astropy table.
         
@@ -168,17 +165,25 @@ class NStarPSFPhotometry(PSFPhotometryBase):
         """
 
         param_tab = Table([[], [], [], [], []],
-                          names=('id', 'group_id', 'x_fit','y_fit','flux_fit'),
+                          names=('id', 'group_id', 'x_fit', 'y_fit',
+                                 'flux_fit'),
                           dtype=('i4', 'i4', 'f8', 'f8', 'f8'))
-        for i in range(np.size(fit_model)):
-            param_table.add_row([[star_group['id'][i]],
-                                 [star_group['group_id'][i]],
-                                 [getattr(fit_model,'x_0_'+str(i)).value],
-                                 [getattr(fit_model, 'y_0_'+str(i)).value],
-                                 [getattr(fit_model, 'flux_'+str(i)).value]])
+        if np.size(fit_model) == 1:
+            param_tab.add_row([[star_group['id'][0]],
+                               [star_group['group_id'][0]],
+                               [getattr(fit_model,'x_0').value],
+                               [getattr(fit_model, 'y_0').value],
+                               [getattr(fit_model, 'flux').value]])
+        else:
+            for i in range(np.size(fit_model)):
+                param_tab.add_row([[star_group['id'][i]],
+                                   [star_group['group_id'][i]],
+                                   [getattr(fit_model,'x_0_'+str(i)).value],
+                                   [getattr(fit_model, 'y_0_'+str(i)).value],
+                                   [getattr(fit_model, 'flux_'+str(i)).value]])
         return param_tab
 
-    def _extract_shape_and_data(shape, star_group, image):
+    def _extract_shape_and_data(self, shape, star_group, image):
         """
         Parameters
         ----------
@@ -223,14 +228,15 @@ class NStarPSFPhotometry(PSFPhotometryBase):
             models.
         """
 
-        sum_psf = self.psf(sigma=self.psf.sigma.value,
-                           flux=star_group['flux_0'][0],
-                           x_0=star_group['x_0'][0], y_0=star_group['y_0'][0])
-        for i in range(len(group) - 1):
-            sum_psf += self.psf(sigma=self.psf.sigma.value,
-                                flux=star_group['flux_0'][i+1],
-                                x_0=star_group['x_0'][i+1],
-                                y_0=star_group['y_0'][i+1])
+        psf_class = type(self.psf)
+        sum_psf = psf_class(sigma=self.psf.sigma.value,
+                            flux=star_group['flux_0'][0],
+                            x_0=star_group['x_0'][0], y_0=star_group['y_0'][0])
+        for i in range(len(star_group) - 1):
+            sum_psf += psf_class(sigma=self.psf.sigma.value,
+                                 flux=star_group['flux_0'][i+1],
+                                 x_0=star_group['x_0'][i+1],
+                                 y_0=star_group['y_0'][i+1])
         return sum_psf
     
     def do_photometry(self, image):
@@ -242,6 +248,9 @@ class NStarPSFPhotometry(PSFPhotometryBase):
 
         # make a copy of the input image
         residual_image = image.copy()
+
+        # perform background subtraction
+        residual_image = residual_image - self.bkg(image)
 
         # find potential sources on the given image
         sources = self.find(residual_image)
@@ -260,15 +269,16 @@ class NStarPSFPhotometry(PSFPhotometryBase):
 
             # fit the sources within in each group in a simultaneous manner
             # and get the residual image
-            tab, residual_image = self.nstar(residual_image, groups)
+            tab, residual_image = self._nstar(residual_image, star_groups)
 
             # mark in which iteration those sources were fitted
-            tab['iter_detected'] = np.int(n*np.ones(tab['x_fit'].shape))
+            tab['iter_detected'] = n*np.ones(tab['x_fit'].shape)
 
             # populate output table
             outtab = vstack([outtab, tab])
-            
+
             # find remaining sources in the residual image
             sources = self.find(residual_image)
             n += 1
+
         return outtab, residual_image
