@@ -8,3 +8,4 @@ from .funcs import *
 from .models import *
 from .groupstars import *
 from .psfphotometry import *
+from .groupstars import *
