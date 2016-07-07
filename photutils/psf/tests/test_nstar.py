@@ -1,4 +1,5 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
+from __future__ import division
 import numpy as np
 from astropy.table import Table
 from astropy.stats import gaussian_sigma_to_fwhm
@@ -12,6 +13,7 @@ from ..psfphotometry import NStarPSFPhotometry
 from ...detection import DAOStarFinder
 from ...background import MedianBackground
 from ...background import StdBackgroundRMS
+
 
 class TestNStarPSFPhotometry(object):
     def test_complete_photometry_one(self):
@@ -34,18 +36,12 @@ class TestNStarPSFPhotometry(object):
 
         bkgrms = StdBackgroundRMS(sigma=3.)
         std = bkgrms(image)
-        
         daofind = DAOStarFinder(threshold=5.0*std,
                                 fwhm=sigma_psf*gaussian_sigma_to_fwhm)
-
         daogroup = DAOGroup(1.5*sigma_psf*gaussian_sigma_to_fwhm)
-
         median_bkg = MedianBackground(sigma=3.)
-
         psf_model = IntegratedGaussianPRF(sigma=sigma_psf)
-
         fitter = LevMarLSQFitter()
-        
         nstar_photometry = NStarPSFPhotometry(find=daofind, group=daogroup,
                                               bkg=median_bkg, psf=psf_model,
                                               fitter=LevMarLSQFitter(),
@@ -71,21 +67,14 @@ class TestNStarPSFPhotometry(object):
         image = (make_gaussian_sources(tshape, sources) +
                  make_noise_image(tshape, type='poisson', mean=1.,
                                   random_state=1))
-
         bkgrms = StdBackgroundRMS(sigma=3.)
         std = bkgrms(image)
-
         daofind = DAOStarFinder(threshold=5.0*std,
                                 fwhm=sigma_psf*gaussian_sigma_to_fwhm)
-
         daogroup = DAOGroup(1.5*sigma_psf*gaussian_sigma_to_fwhm)
-
         median = MedianBackground(sigma=3.)
-
         psf_model = IntegratedGaussianPRF(sigma=sigma_psf)
-
         fitter = LevMarLSQFitter()
-        
         nstar_photometry = NStarPSFPhotometry(find=daofind, group=daogroup,
                                               bkg=median, psf=psf_model,
                                               fitter=LevMarLSQFitter(),
