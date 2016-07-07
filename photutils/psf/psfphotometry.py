@@ -5,10 +5,6 @@ import abc
 import numpy as np
 from astropy.table import Table, vstack
 from photutils.psf import subtract_psf
-from photutils.detection import StarFinderBase
-from photutils.psf.groupstars import GroupStarsBase
-from photutils.background import BackgroundBase2D
-from astropy.modeling import Fittable2DModel
 
 
 __all__ = ['PSFPhotometryBase', 'NStarPSFPhotometry']
