@@ -23,7 +23,7 @@ class TestNStarPSFPhotometry(object):
         sigma_psf = 2.0
         sources = Table()
         sources['flux'] = [700, 700]
-        sources['x_mean'] = [17, 12]
+        sources['x_mean'] = [12, 17]
         sources['y_mean'] = [15, 15]
         sources['x_stddev'] = [sigma_psf, sigma_psf]
         sources['y_stddev'] = sources['x_stddev']
@@ -32,7 +32,7 @@ class TestNStarPSFPhotometry(object):
 
         image = (make_gaussian_sources(tshape, sources) +
                  make_noise_image(tshape, type='poisson', mean=1.,
-                                  random_state=1))
+                                  random_state=1)) 
 
         bkgrms = StdBackgroundRMS(sigma=3.)
         std = bkgrms(image)
@@ -56,7 +56,7 @@ class TestNStarPSFPhotometry(object):
     def test_complete_photometry_two(self):
         sigma_psf = 2.0
         sources = Table()
-        sources['flux'] = [500, 700, 500, 600]
+        sources['flux'] = [700, 500, 500, 600]
         sources['x_mean'] = [12, 18, 12, 18]
         sources['y_mean'] = [15, 15, 20, 20]
         sources['x_stddev'] = sigma_psf*np.ones(4)
@@ -67,6 +67,7 @@ class TestNStarPSFPhotometry(object):
         image = (make_gaussian_sources(tshape, sources) +
                  make_noise_image(tshape, type='poisson', mean=1.,
                                   random_state=1))
+        
         bkgrms = StdBackgroundRMS(sigma=3.)
         std = bkgrms(image)
         daofind = DAOStarFinder(threshold=5.0*std,

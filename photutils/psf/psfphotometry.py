@@ -1,7 +1,8 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 """Module which provides classes to perform PSF Photometry"""
 
-import abc
+from __future__ import division
+import abc, six
 import numpy as np
 from astropy.table import Table, vstack
 from photutils.psf import subtract_psf
@@ -12,7 +13,7 @@ __all__ = ['PSFPhotometryBase', 'NStarPSFPhotometry']
 
 class PSFPhotometryBase(object):
     __metaclass__ = abc.ABCMeta
-    
+
     @abc.abstractmethod
     def do_photometry(self):
         pass
@@ -113,7 +114,7 @@ class NStarPSFPhotometry(PSFPhotometryBase):
         image : numpy.ndarray
             Residual image.
         """
-        
+
         result_tab = Table([[], [], [], [], []],
                            names=('id', 'group_id', 'x_fit', 'y_fit',
                                   'flux_fit'),
@@ -132,13 +133,14 @@ class NStarPSFPhotometry(PSFPhotometryBase):
             N = len(groups_order)
             while(n < N):
                 if curr_order == len(star_groups.groups[n]):
-                    group_psf = self._create_sum_psf_model(star_groups.groups[n])
-                    x, y, data = self._extract_shape_and_data(shape=self.fitshape,
-                                                              star_group=star_groups.groups[n],
-                                                              image=image)
+                    group_psf = self._get_sum_psf_model(star_groups.groups[n])
+                    x, y, data = self._get_shape_and_data(shape=self.fitshape,\
+                                             star_group=star_groups.groups[n],
+                                                          image=image)
                     fit_model = self.fitter(group_psf, x, y, data)
-                    param_table = self._model_params2table(fit_model,
-                                                           star_groups.groups[n])
+                    print(fit_model)
+                    param_table = self._model_params2table(fit_model,\
+                                                        star_groups.groups[n])
                     result_tab = vstack([result_tab, param_table])
                     image = subtract_psf(image, self.psf, param_table)
                     N = N - 1
@@ -179,7 +181,7 @@ class NStarPSFPhotometry(PSFPhotometryBase):
                                    [getattr(fit_model, 'flux_'+str(i)).value]])
         return param_tab
 
-    def _extract_shape_and_data(self, shape, star_group, image):
+    def _get_shape_and_data(self, shape, star_group, image):
         """
         Parameters
         ----------
@@ -206,7 +208,7 @@ class NStarPSFPhotometry(PSFPhotometryBase):
 
         return x, y, image[ymin:ymax+1, xmin:xmax+1]
 
-    def _create_sum_psf_model(self, star_group):
+    def _get_sum_psf_model(self, star_group):
         """
         Construct a joint psf model which consists in a sum of `self.psf`
         whose parameters are given in `star_group`.
