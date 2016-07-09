@@ -21,7 +21,7 @@ class PSFPhotometryBase(object):
 
 class NStarPSFPhotometry(PSFPhotometryBase):
     """
-    This is an implementation of the NSTAR algorithm proposed by Stetson
+    This class implements the NSTAR algorithm proposed by Stetson
     (1987) to perform point spread function photometry in crowded fields.
 
     This class basically implements the loop FIND, GROUP, NSTAR,
@@ -38,7 +38,8 @@ class NStarPSFPhotometry(PSFPhotometryBase):
         psf : Fittable2DModel instance
         fitter : Fitter instance
         niters : int
-            number of iterations for the loop FIND, GROUP, SUBTRACT, NSTAR
+            number of iterations to perform the loop FIND, GROUP, SUBTRACT,
+            NSTAR.
         fitshape : array-like
             rectangular shape around the center of a star which will be used
             to collect the data to do the fitting
@@ -93,11 +94,62 @@ class NStarPSFPhotometry(PSFPhotometryBase):
 
         return self.do_photometry(image)
 
+    def do_photometry(self, image):
+        # prepare output table
+        outtab = Table([[], [], [], [], [], []],
+                       names=('id', 'group_id', 'x_fit', 'y_fit', 'flux_fit',
+                              'iter_detected'),
+                       dtype=('i4', 'i4', 'f8', 'f8', 'f8', 'i4'))
+
+        # make a copy of the input image
+        residual_image = image.copy()
+
+        # perform background subtraction
+        residual_image = residual_image - self.bkg(image)
+
+        # find potential sources on the given image
+        sources = self.find(residual_image)
+
+        n = 1
+        # iterate until no more sources are found or the number of iterations
+        # has been reached
+        while(n <= self.niters and len(sources) > 0):
+            # prepare input table
+            intab = Table(names=['id', 'x_0', 'y_0', 'flux_0'],
+                          data=[sources['id'], sources['xcentroid'],
+                          sources['ycentroid'], sources['flux']])
+
+            # find groups of overlapping sources
+            star_groups = self.group(intab)
+
+            # fit the sources within in each group in a simultaneous manner
+            # and get the residual image
+            tab, residual_image = self._nstar(residual_image, star_groups)
+
+            # mark in which iteration those sources were fitted
+            tab['iter_detected'] = n*np.ones(tab['x_fit'].shape, dtype=np.int)
+
+            # populate output table
+            outtab = vstack([outtab, tab])
+
+            # find remaining sources in the residual image
+            sources = self.find(residual_image)
+            n += 1
+
+        return outtab, residual_image
+
+    def get_uncertainties(self):
+        """
+        Return the uncertainties on the fitted parameters
+        """
+        pass
+
     def _nstar(self, image, star_groups):
         """
-        Fit, as appropriate, a compound or single model to a given `groups` of
-        stars. Groups are fitted sequentially from the smallest to the biggest. In
-        each iteration, `image` is subtracted by the previous fitted group. 
+        Fit, as appropriate, a compound or single model to the given
+        `star_groups`. Groups are fitted sequentially from the smallest to
+        the biggest. In each iteration, `image` is subtracted by the previous
+        fitted group. 
         
         Parameters
         ----------
@@ -138,14 +190,19 @@ class NStarPSFPhotometry(PSFPhotometryBase):
                                              star_group=star_groups.groups[n],
                                                           image=image)
                     fit_model = self.fitter(group_psf, x, y, data)
-                    print(fit_model)
                     param_table = self._model_params2table(fit_model,\
                                                         star_groups.groups[n])
                     result_tab = vstack([result_tab, param_table])
-                    image = subtract_psf(image, self.psf, param_table)
+                    image = self._subtract_psf(image, x, y, fit_model)
                     N = N - 1
                 n += 1
         return result_tab, image
+
+    def _subtract_psf(self, image, x, y, fit_model):
+        psf_image = np.zeros(image.shape)
+        psf_image[y,x] = fit_model(x,y)
+
+        return image - psf_image
 
     def _model_params2table(self, fit_model, star_group):
         """
@@ -235,48 +292,4 @@ class NStarPSFPhotometry(PSFPhotometryBase):
                                  flux=star_group['flux_0'][i+1],
                                  x_0=star_group['x_0'][i+1],
                                  y_0=star_group['y_0'][i+1])
-        return sum_psf
-    
-    def do_photometry(self, image):
-        # prepare output table
-        outtab = Table([[], [], [], [], [], []],
-                       names=('id', 'group_id', 'x_fit', 'y_fit', 'flux_fit',
-                              'iter_detected'),
-                       dtype=('i4', 'i4', 'f8', 'f8', 'f8', 'i4'))
-
-        # make a copy of the input image
-        residual_image = image.copy()
-
-        # perform background subtraction
-        residual_image = residual_image - self.bkg(image)
-
-        # find potential sources on the given image
-        sources = self.find(residual_image)
-
-        n = 1
-        # iterate until no more sources are found or the number of iterations
-        # has been reached
-        while(n <= self.niters and len(sources) > 0):
-            # prepare input table
-            intab = Table(names=['id', 'x_0', 'y_0', 'flux_0'],
-                          data=[sources['id'], sources['xcentroid'],
-                          sources['ycentroid'], sources['flux']])
-
-            # find groups of overlapping sources
-            star_groups = self.group(intab)
-
-            # fit the sources within in each group in a simultaneous manner
-            # and get the residual image
-            tab, residual_image = self._nstar(residual_image, star_groups)
-
-            # mark in which iteration those sources were fitted
-            tab['iter_detected'] = n*np.ones(tab['x_fit'].shape)
-
-            # populate output table
-            outtab = vstack([outtab, tab])
-
-            # find remaining sources in the residual image
-            sources = self.find(residual_image)
-            n += 1
-
-        return outtab, residual_image
+        return sum_psf 
