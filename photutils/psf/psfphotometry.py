@@ -2,24 +2,24 @@
 """Module which provides classes to perform PSF Photometry"""
 
 from __future__ import division
-import abc, six
+import abc
 import numpy as np
-from astropy.table import Table, vstack
+import astropy.extern.six
+from astropy.table import Table
+from astropy.table import vstack
 from photutils.psf import subtract_psf
 
 
-__all__ = ['PSFPhotometryBase', 'NStarPSFPhotometry']
+__all__ = ['PSFPhotometryBase', 'StetsonPSFPhotometry']
 
 
-class PSFPhotometryBase(object):
-    __metaclass__ = abc.ABCMeta
-
+class PSFPhotometryBase(abc.ABCMeta):
     @abc.abstractmethod
     def do_photometry(self):
         pass
 
-
-class NStarPSFPhotometry(PSFPhotometryBase):
+@six.add_metaclass(PSFPhotometry)
+class StetsonPSFPhotometry(object):
     """
     This class implements the NSTAR algorithm proposed by Stetson
     (1987) to perform point spread function photometry in crowded fields.
@@ -144,7 +144,7 @@ class NStarPSFPhotometry(PSFPhotometryBase):
         """
         pass
 
-    def _nstar(self, image, star_groups):
+    def nstar(self, image, star_groups):
         """
         Fit, as appropriate, a compound or single model to the given
         `star_groups`. Groups are fitted sequentially from the smallest to
@@ -155,9 +155,7 @@ class NStarPSFPhotometry(PSFPhotometryBase):
         ----------
         image : numpy.ndarray
             Background-subtracted image.
-        star_groups : list of `~astropy.table.Table`
-            Each `~astropy.table.Table` in this list corresponds to a group of
-            mutually overlapping starts.
+        star_groups : `~astropy.table.Table`
 
         Return
         ------
@@ -182,7 +180,6 @@ class NStarPSFPhotometry(PSFPhotometryBase):
         while N > 0:
             curr_order = np.min(groups_order)
             n = 0
-            N = len(groups_order)
             while(n < N):
                 if curr_order == len(star_groups.groups[n]):
                     group_psf = self._get_sum_psf_model(star_groups.groups[n])
@@ -193,16 +190,10 @@ class NStarPSFPhotometry(PSFPhotometryBase):
                     param_table = self._model_params2table(fit_model,\
                                                         star_groups.groups[n])
                     result_tab = vstack([result_tab, param_table])
-                    image = self._subtract_psf(image, x, y, fit_model)
+                    image = self.subtract_psf(image, x, y, fit_model)
                     N = N - 1
                 n += 1
         return result_tab, image
-
-    def _subtract_psf(self, image, x, y, fit_model):
-        psf_image = np.zeros(image.shape)
-        psf_image[y,x] = fit_model(x,y)
-
-        return image - psf_image
 
     def _model_params2table(self, fit_model, star_group):
         """
