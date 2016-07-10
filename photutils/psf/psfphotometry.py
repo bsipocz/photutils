@@ -4,7 +4,7 @@
 from __future__ import division
 import abc
 import numpy as np
-import astropy.extern.six
+from astropy.extern import six
 from astropy.table import Table
 from astropy.table import vstack
 from photutils.psf import subtract_psf
@@ -18,7 +18,7 @@ class PSFPhotometryBase(abc.ABCMeta):
     def do_photometry(self):
         pass
 
-@six.add_metaclass(PSFPhotometry)
+@six.add_metaclass(PSFPhotometryBase)
 class StetsonPSFPhotometry(object):
     """
     This class implements the NSTAR algorithm proposed by Stetson
@@ -72,7 +72,7 @@ class StetsonPSFPhotometry(object):
             fitshape = np.asarray(fitshape)
             if len(fitshape) == 2:
                 if np.all(fitshape) > 0:
-                    if np.all(fitshape) % 2 == 1):
+                    if np.all(fitshape) % 2 == 1:
                         self._fitshape = fitshape
                     else:
                         raise ValueError('fitshape must be odd integer-valued, '
@@ -135,7 +135,7 @@ class StetsonPSFPhotometry(object):
 
             # fit the sources within in each group in a simultaneous manner
             # and get the residual image
-            tab, residual_image = self._nstar(residual_image, star_groups)
+            tab, residual_image = self.nstar(residual_image, star_groups)
 
             # mark in which iteration those sources were fitted
             tab['iter_detected'] = n*np.ones(tab['x_fit'].shape, dtype=np.int)
@@ -201,7 +201,7 @@ class StetsonPSFPhotometry(object):
                     param_table = self._model_params2table(fit_model,\
                                                         star_groups.groups[n])
                     result_tab = vstack([result_tab, param_table])
-                    image = self.subtract_psf(image, x, y, fit_model)
+                    image = subtract_psf(image, self.psf, param_table)
                     N = N - 1
                 n += 1
         return result_tab, image
