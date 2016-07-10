@@ -9,13 +9,13 @@ from ..models import IntegratedGaussianPRF
 from ...datasets import make_gaussian_sources
 from ...datasets import make_noise_image
 from ..groupstars import DAOGroup
-from ..psfphotometry import NStarPSFPhotometry
+from ..psfphotometry import StetsonPSFPhotometry
 from ...detection import DAOStarFinder
 from ...background import MedianBackground
 from ...background import StdBackgroundRMS
 
 
-class TestNStarPSFPhotometry(object):
+class TestStetsonPSFPhotometry(object):
     def test_complete_photometry_one(self):
         """
         Tests the whole photometry process.
@@ -43,10 +43,10 @@ class TestNStarPSFPhotometry(object):
         median_bkg = MedianBackground(sigma=3.)
         psf_model = IntegratedGaussianPRF(sigma=sigma_psf)
         fitter = LevMarLSQFitter()
-        nstar_photometry = NStarPSFPhotometry(find=daofind, group=daogroup,
-                                              bkg=median_bkg, psf=psf_model,
-                                              fitter=LevMarLSQFitter(),
-                                              niters=1, fitshape=(5,5))
+        nstar_photometry = StetsonPSFPhotometry(find=daofind, group=daogroup,
+                                                bkg=median_bkg, psf=psf_model,
+                                                fitter=LevMarLSQFitter(),
+                                                niters=1, fitshape=(5,5))
         
         result_tab, residual_image = nstar_photometry(image)
 
@@ -81,10 +81,10 @@ class TestNStarPSFPhotometry(object):
         median_bkg = MedianBackground(sigma=3.)
         psf_model = IntegratedGaussianPRF(sigma=sigma_psf)
         fitter = LevMarLSQFitter()
-        nstar_photometry = NStarPSFPhotometry(find=daofind, group=daogroup,
-                                              bkg=median_bkg, psf=psf_model,
-                                              fitter=LevMarLSQFitter(),
-                                              niters=1, fitshape=(5,5))
+        nstar_photometry = StetsonPSFPhotometry(find=daofind, group=daogroup,
+                                                bkg=median_bkg, psf=psf_model,
+                                                fitter=LevMarLSQFitter(),
+                                                niters=1, fitshape=(5,5))
         
         result_tab, residual_image = nstar_photometry(image)
 
