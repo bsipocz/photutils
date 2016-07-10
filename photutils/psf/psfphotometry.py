@@ -7,7 +7,8 @@ import numpy as np
 from astropy.extern import six
 from astropy.table import Table
 from astropy.table import vstack
-from photutils.psf import subtract_psf
+from astropy.modeling.fitting import LevMarLSQFitter
+from ..psf import subtract_psf
 
 
 __all__ = ['PSFPhotometryBase', 'StetsonPSFPhotometry']
@@ -21,29 +22,71 @@ class PSFPhotometryBase(abc.ABCMeta):
 @six.add_metaclass(PSFPhotometryBase)
 class StetsonPSFPhotometry(object):
     """
-    This class implements the NSTAR algorithm proposed by Stetson
-    (1987) to perform point spread function photometry in crowded fields.
-
-    This class basically implements the loop FIND, GROUP, NSTAR,
-    SUBTRACT, FIND until no more stars are detected.
+    This class implements the DAOPHOT algorithm proposed by Stetson
+    (1987) to perform point spread function photometry in crowded fields,
+    which consists basically in applying the loop FIND, GROUP, NSTAR,
+    SUBTRACT, FIND until no more stars are detected or a given number of
+    iterations is reached.
     """
 
-    def __init__(self, find, group, bkg, psf, fitter, niters, fitshape):
+    def __init__(self, find, group, bkg, psf, fitshape,
+                 fitter=LevMarLSQFitter(), niters=3):
         """
         Attributes
         ----------
-        find : an instance of any StarFinderBase subclasses
-        group : an instance of any GroupStarsBase subclasses
-        bkg : an instance of any BackgroundBase2D (?) subclasses
-        psf : Fittable2DModel instance
-        fitter : Fitter instance
-        niters : int
-            number of iterations to perform the loop FIND, GROUP, SUBTRACT,
-            NSTAR.
+        find : callable or instance of any StarFinderBase subclasses
+            ``find`` should be able to identify stars, i.e. compute a rough
+            estimate of the centroids, in a given 2D image.
+            ``find`` receives as input a 2D image an return an
+            `~astropy.table.Table` object which contains columns with names:
+            ``id``, ``xcentroid``, ``ycentroid``, and ``flux``. In which
+            ``id`` is an interger-valued column starting from ``1``,
+            ``xcentroid`` and ``ycentroid`` are center position estimates of
+            the sources and ``flux`` contains flux estimates of the sources.
+            See, e.g., `~photutils.detection.DAOStarFinder`
+        group : callable or instance of any GroupStarsBase subclasses
+            ``group`` should be able to decide whether a given star overlaps
+            with any other and label them as beloging to the same group.
+            ``group`` receives as input an `~astropy.table.Table` object
+            with columns named as ``id``, ``x_0``, ``y_0``, in which ``x_0``
+            and ``y_0`` have the same meaning of ``xcentroid`` and
+            ``ycentroid``. This callable must return an `~astropy.table.Table`
+            with columns ``id``, ``x_0``, ``y_0``, and ``group_id``. The
+            column ``group_id`` should cotain integers starting from ``1``
+            that indicate in which group a given source belongs to.
+            See, e.g., `~photutils.psf.DAOGroup`
+        bkg : callable or instance of any BackgroundBase subclasses
+            ``bkg`` should be able to compute either a scalar background or a
+            2D background of a given 2D image.
+            See, e.g., `~photutils.background.MedianBackground`
+        psf : `astropy.modeling.Fittable2DModel` instance
+            PSF or PRF model to fit the data. Could be one of the models in this
+            package like `~photutils.psf.sandbox.DiscretePRF`,
+            `~photutils.psf.IntegratedGaussianPRF`, or any other suitable
+            2D model.
+            This function needs to identify three parameters (position of center in
+            x and y coordinates and the flux) in order to set them to suitable
+            starting values for each fit. The names of these parameters can be given
+            as follows:
+
+            - Set ``psf.psf_xname``, ``psf.psf_yname`` and ``psf.psf_fluxname`` to
+              strings with the names of the respective psf model parameter.
+            - If those attributes are not found, the names ``x_0``, ``y_0`` and
+              ``flux`` are assumed.
+
+            `~photutils.psf.prepare_psf_model` can be used to prepare any 2D model
+            to match these assumptions.
         fitshape : array-like
-            rectangular shape around the center of a star which will be used
-            to collect the data to do the fitting, e.g. (5, 5), [5, 5],
-            np.array([5, 5]). Also, each element must be an odd number.
+            Rectangular shape around the center of a star which will be used
+            to collect the data to do the fitting, e.g. (5, 5), [9, 7],
+            np.array([5, 7]). Also, each element must be an odd number.
+        fitter : Fitter instance
+            Fitter object used to compute the optimized centroid positions
+            and/or flux of the identified sources. See
+            `~astropy.modeling.fitting` for more details on fitters.
+        niters : int (default=3)
+            Number of iterations to perform the loop FIND, GROUP, SUBTRACT,
+            NSTAR.
         """
 
         self.find = find
@@ -91,7 +134,7 @@ class StetsonPSFPhotometry(object):
         Parameters
         ----------
         image : array-like, ImageHDU, HDUList
-            image to perform photometry
+            Image to perform photometry
         
         Returns
         -------
