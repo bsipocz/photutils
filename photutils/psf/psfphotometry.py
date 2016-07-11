@@ -80,13 +80,21 @@ class StetsonPSFPhotometry(object):
             Rectangular shape around the center of a star which will be used
             to collect the data to do the fitting, e.g. (5, 5), [9, 7],
             np.array([5, 7]). Also, each element must be an odd number.
-        fitter : Fitter instance
+        fitter : Fitter instance (default=LevMarLSQFitter())
             Fitter object used to compute the optimized centroid positions
             and/or flux of the identified sources. See
             `~astropy.modeling.fitting` for more details on fitters.
         niters : int (default=3)
             Number of iterations to perform the loop FIND, GROUP, SUBTRACT,
             NSTAR.
+
+        Notes
+        -----
+        If there are problems with fitting large groups, change the parameters
+        of the grouping algorithm to reduce the number of sources in each
+        group or input a ``star_groups`` table that only includes the groups
+        that are relevant (e.g. manually remove all entries that coincide with
+        artifacts).
         """
 
         self.find = find
@@ -133,13 +141,14 @@ class StetsonPSFPhotometry(object):
         """
         Parameters
         ----------
-        image : array-like, ImageHDU, HDUList
-            Image to perform photometry
+        image : 2D array-like, `~astropy.io.fits.ImageHDU`,
+                `~astropy.io.fits.HDUList`
+          Image to perform photometry
         
         Returns
         -------
-        outtab : astropy.table.Table
-            Table with the photometry results, i.e., centroids and flux
+        outtab : `~astropy.table.Table`
+            Table with the photometry results, i.e., centroids and fluxes
             estimations.
         residual_image : array-like, ImageHDU, HDUList
             Residual image calculated by subtracting the fitted sources
@@ -210,11 +219,15 @@ class StetsonPSFPhotometry(object):
         image : numpy.ndarray
             Background-subtracted image.
         star_groups : `~astropy.table.Table`
+            This table must contain the following columns: ``id``,
+            ``group_id``, ``x_0``, ``y_0``, ``flux_0``.
+            ``x_0`` and ``y_0`` are initial estimates of the centroids
+            and ``flux_0`` is an initial estimate of the flux.
 
         Return
         ------
         result_tab : `~astropy.table.Table`
-            Astropy table that contains the results of the photometry.
+            Astropy table that contains photometry results.
         image : numpy.ndarray
             Residual image.
         """
@@ -223,30 +236,19 @@ class StetsonPSFPhotometry(object):
                            names=('id', 'group_id', 'x_fit', 'y_fit',
                                   'flux_fit'),
                            dtype=('i4', 'i4', 'f8', 'f8', 'f8'))
-
+        
         star_groups = star_groups.group_by('group_id')
         
-        groups_order = []
-        for g in star_groups.groups:
-            groups_order.append(len(g))
-
-        N = len(groups_order)
-        while N > 0:
-            curr_order = np.min(groups_order)
-            n = 0
-            while(n < N):
-                if curr_order == len(star_groups.groups[n]):
-                    group_psf = self._get_sum_psf_model(star_groups.groups[n])
-                    x, y, data = self._get_shape_and_data(shape=self.fitshape,\
-                                             star_group=star_groups.groups[n],
-                                                          image=image)
-                    fit_model = self.fitter(group_psf, x, y, data)
-                    param_table = self._model_params2table(fit_model,\
-                                                        star_groups.groups[n])
-                    result_tab = vstack([result_tab, param_table])
-                    image = subtract_psf(image, self.psf, param_table)
-                    N = N - 1
-                n += 1
+        for n in range(len(star_groups.groups)):
+            group_psf = self._get_sum_psf_model(star_groups.groups[n])
+            x, y, data = self._get_shape_and_data(shape=self.fitshape,
+                                                  star_group=star_groups.groups[n],
+                                                  image=image)
+            fit_model = self.fitter(group_psf, x, y, data)
+            param_table = self._model_params2table(fit_model,
+                                                   star_groups.groups[n])
+            result_tab = vstack([result_tab, param_table])
+            image = subtract_psf(image, self.psf, param_table)
         return result_tab, image
 
     def _model_params2table(self, fit_model, star_group):
