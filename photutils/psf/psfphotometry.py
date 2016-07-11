@@ -5,13 +5,13 @@ from __future__ import division
 import abc
 import numpy as np
 from astropy.extern import six
-from astropy.table import Table
-from astropy.table import vstack
+from astropy.table import Table, vstack
 from astropy.modeling.fitting import LevMarLSQFitter
 from ..psf import subtract_psf
+from ..extern.nddata_compat import extract_array
 
 
-__all__ = ['PSFPhotometryBase', 'StetsonPSFPhotometry']
+__all__ = ['PSFPhotometryBase', 'DAOPhotPSFPhotometry']
 
 
 class PSFPhotometryBase(abc.ABCMeta):
@@ -20,7 +20,7 @@ class PSFPhotometryBase(abc.ABCMeta):
         pass
 
 @six.add_metaclass(PSFPhotometryBase)
-class StetsonPSFPhotometry(object):
+class DAOPhotPSFPhotometry(object):
     """
     This class implements the DAOPHOT algorithm proposed by Stetson
     (1987) to perform point spread function photometry in crowded fields,
@@ -236,14 +236,22 @@ class StetsonPSFPhotometry(object):
                            names=('id', 'group_id', 'x_fit', 'y_fit',
                                   'flux_fit'),
                            dtype=('i4', 'i4', 'f8', 'f8', 'f8'))
-        
         star_groups = star_groups.group_by('group_id')
-        
+        indices = np.indices(image.shape)
+
         for n in range(len(star_groups.groups)):
             group_psf = self._get_sum_psf_model(star_groups.groups[n])
-            x, y, data = self._get_shape_and_data(shape=self.fitshape,
-                                                  star_group=star_groups.groups[n],
-                                                  image=image)
+            y = []
+            x = []
+            data = []
+            for row in star_groups.groups[n]:
+                pos = (row['y_0'], row['x_0'])
+                yy = extract_array(indices[0], self.fitshape, pos).flatten()
+                y = np.hstack((y, yy))
+                xx = extract_array(indices[1], self.fitshape, pos).flatten()
+                x = np.hstack((x, xx))
+                data = np.hstack((data, extract_array(image, self.fitshape,\
+                                            pos, fill_value=0.0).flatten()))
             fit_model = self.fitter(group_psf, x, y, data)
             param_table = self._model_params2table(fit_model,
                                                    star_groups.groups[n])
@@ -284,33 +292,6 @@ class StetsonPSFPhotometry(object):
                                    [getattr(fit_model, 'y_0_'+str(i)).value],
                                    [getattr(fit_model, 'flux_'+str(i)).value]])
         return param_tab
-
-    def _get_shape_and_data(self, shape, star_group, image):
-        """
-        Parameters
-        ----------
-        shape : tuple
-            Shape of a rectangular region around the center of an isolated source.
-        star_group : `astropy.table.Table`
-            Group of stars
-        image : numpy.ndarray
-
-        Returns
-        -------
-        x, y : numpy.mgrid
-            All coordinate pairs (x,y) in a rectangular region which encloses all
-            sources of the given group
-        image : numpy.ndarray
-            Pixel value
-        """
-
-        xmin = int(np.around(np.min(star_group['x_0'])) - shape[0])
-        xmax = int(np.around(np.max(star_group['x_0'])) + shape[0])
-        ymin = int(np.around(np.min(star_group['y_0'])) - shape[1])
-        ymax = int(np.around(np.max(star_group['y_0'])) + shape[1])
-        y, x = np.mgrid[ymin:ymax+1, xmin:xmax+1]
-
-        return x, y, image[ymin:ymax+1, xmin:xmax+1]
 
     def _get_sum_psf_model(self, star_group):
         """

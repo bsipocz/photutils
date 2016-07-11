@@ -9,13 +9,13 @@ from ..models import IntegratedGaussianPRF
 from ...datasets import make_gaussian_sources
 from ...datasets import make_noise_image
 from ..groupstars import DAOGroup
-from ..psfphotometry import StetsonPSFPhotometry
+from ..psfphotometry import DAOPhotPSFPhotometry
 from ...detection import DAOStarFinder
 from ...background import MedianBackground
 from ...background import StdBackgroundRMS
 
 
-class TestStetsonPSFPhotometry(object):
+class TestDAOPhotPSFPhotometry(object):
     def test_complete_photometry_one(self):
         """
         Tests the whole photometry process.
@@ -31,7 +31,7 @@ class TestStetsonPSFPhotometry(object):
         tshape = (32, 32)
 
         image = (make_gaussian_sources(tshape, sources) +
-                 make_noise_image(tshape, type='poisson', mean=4.,
+                 make_noise_image(tshape, type='poisson', mean=1.,
                                   random_state=1)) 
 
         bkgrms = StdBackgroundRMS(sigma=3.)
@@ -43,7 +43,7 @@ class TestStetsonPSFPhotometry(object):
         median_bkg = MedianBackground(sigma=3.)
         psf_model = IntegratedGaussianPRF(sigma=sigma_psf)
         fitter = LevMarLSQFitter()
-        nstar_photometry = StetsonPSFPhotometry(find=daofind, group=daogroup,
+        nstar_photometry = DAOPhotPSFPhotometry(find=daofind, group=daogroup,
                                                 bkg=median_bkg, psf=psf_model,
                                                 fitter=LevMarLSQFitter(),
                                                 niters=1, fitshape=(5,5))
@@ -81,7 +81,7 @@ class TestStetsonPSFPhotometry(object):
         median_bkg = MedianBackground(sigma=3.)
         psf_model = IntegratedGaussianPRF(sigma=sigma_psf)
         fitter = LevMarLSQFitter()
-        nstar_photometry = StetsonPSFPhotometry(find=daofind, group=daogroup,
+        nstar_photometry = DAOPhotPSFPhotometry(find=daofind, group=daogroup,
                                                 bkg=median_bkg, psf=psf_model,
                                                 fitter=LevMarLSQFitter(),
                                                 niters=1, fitshape=(5,5))
