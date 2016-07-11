@@ -158,47 +158,25 @@ class DAOPhotPSFPhotometry(object):
         return self.do_photometry(image)
 
     def do_photometry(self, image):
-        # prepare output table
         outtab = Table([[], [], [], [], [], []],
                        names=('id', 'group_id', 'x_fit', 'y_fit', 'flux_fit',
                               'iter_detected'),
                        dtype=('i4', 'i4', 'f8', 'f8', 'f8', 'i4'))
-
-        # make a copy of the input image
         residual_image = image.copy()
-
-        # perform background subtraction
         residual_image = residual_image - self.bkg(image)
-
-        # find potential sources on the given image
         sources = self.find(residual_image)
-
+        
         n = 1
-        # iterate until no more sources are found or the number of iterations
-        # has been reached
         while(n <= self.niters and len(sources) > 0):
-            # prepare input table
             intab = Table(names=['id', 'x_0', 'y_0', 'flux_0'],
                           data=[sources['id'], sources['xcentroid'],
                           sources['ycentroid'], sources['flux']])
-
-            # find groups of overlapping sources
             star_groups = self.group(intab)
-
-            # fit the sources within in each group in a simultaneous manner
-            # and get the residual image
             tab, residual_image = self.nstar(residual_image, star_groups)
-
-            # mark in which iteration those sources were fitted
             tab['iter_detected'] = n*np.ones(tab['x_fit'].shape, dtype=np.int)
-
-            # populate output table
             outtab = vstack([outtab, tab])
-
-            # find remaining sources in the residual image
             sources = self.find(residual_image)
             n += 1
-
         return outtab, residual_image
 
     def get_uncertainties(self):
@@ -246,10 +224,10 @@ class DAOPhotPSFPhotometry(object):
             data = []
             for row in star_groups.groups[n]:
                 pos = (row['y_0'], row['x_0'])
-                yy = extract_array(indices[0], self.fitshape, pos).flatten()
-                y = np.hstack((y, yy))
-                xx = extract_array(indices[1], self.fitshape, pos).flatten()
-                x = np.hstack((x, xx))
+                y = np.hstack((y, extract_array(indices[0], self.fitshape,\
+                                                pos).flatten()))
+                x = np.hstack((x, extract_array(indices[1], self.fitshape,\
+                                                pos).flatten()))
                 data = np.hstack((data, extract_array(image, self.fitshape,\
                                             pos, fill_value=0.0).flatten()))
             fit_model = self.fitter(group_psf, x, y, data)
