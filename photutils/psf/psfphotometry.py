@@ -60,26 +60,28 @@ class DAOPhotPSFPhotometry(object):
             2D background of a given 2D image.
             See, e.g., `~photutils.background.MedianBackground`
         psf : `astropy.modeling.Fittable2DModel` instance
-            PSF or PRF model to fit the data. Could be one of the models in this
-            package like `~photutils.psf.sandbox.DiscretePRF`,
+            PSF or PRF model to fit the data. Could be one of the models in
+            this package like `~photutils.psf.sandbox.DiscretePRF`,
             `~photutils.psf.IntegratedGaussianPRF`, or any other suitable
             2D model.
-            This function needs to identify three parameters (position of center in
-            x and y coordinates and the flux) in order to set them to suitable
-            starting values for each fit. The names of these parameters can be given
-            as follows:
+            This object needs to identify three parameters (position of
+            center in x and y coordinates and the flux) in order to set them
+            to suitable starting values for each fit. The names of these
+            parameters can be given as follows:
 
-            - Set ``psf.psf_xname``, ``psf.psf_yname`` and ``psf.psf_fluxname`` to
-              strings with the names of the respective psf model parameter.
-            - If those attributes are not found, the names ``x_0``, ``y_0`` and
-              ``flux`` are assumed.
+            - Set ``psf.psf_xname``, ``psf.psf_yname`` and
+              ``psf.psf_fluxname`` to strings with the names of the respective
+              psf model parameter.
+            - If those attributes are not found, the names ``x_0``, ``y_0``
+              and ``flux`` are assumed.
 
-            `~photutils.psf.prepare_psf_model` can be used to prepare any 2D model
-            to match these assumptions.
+            `~photutils.psf.prepare_psf_model` can be used to prepare any 2D
+            model to match these assumptions.
         fitshape : array-like
             Rectangular shape around the center of a star which will be used
-            to collect the data to do the fitting, e.g. (5, 5), [9, 7],
-            np.array([5, 7]). Also, each element must be an odd number.
+            to collect the data to do the fitting, e.g. (5, 5) means to take
+            the following relative pixel positions: [-2, -1, 0, 1, 2].
+            Also, each element of ``fitshape`` must be an odd number.
         fitter : Fitter instance (default=LevMarLSQFitter())
             Fitter object used to compute the optimized centroid positions
             and/or flux of the identified sources. See
@@ -126,7 +128,8 @@ class DAOPhotPSFPhotometry(object):
                     if np.all(fitshape) % 2 == 1:
                         self._fitshape = fitshape
                     else:
-                        raise ValueError('fitshape must be odd integer-valued, '
+                        raise ValueError('fitshape must be odd '
+                                         'integer-valued, '
                                          'received fitshape = {}'\
                                          .format(fitshape))
                 else:
@@ -142,15 +145,16 @@ class DAOPhotPSFPhotometry(object):
         Parameters
         ----------
         image : 2D array-like, `~astropy.io.fits.ImageHDU`,
-                `~astropy.io.fits.HDUList`
-          Image to perform photometry
+        `~astropy.io.fits.HDUList`
+            Image to perform photometry
         
         Returns
         -------
         outtab : `~astropy.table.Table`
             Table with the photometry results, i.e., centroids and fluxes
             estimations.
-        residual_image : array-like, ImageHDU, HDUList
+        residual_image : array-like, `~astropy.io.fits.ImageHDU`,
+        `~astropy.io.fits.HDUList`
             Residual image calculated by subtracting the fitted sources
             and the original image.
         """
@@ -215,6 +219,7 @@ class DAOPhotPSFPhotometry(object):
                                   'flux_fit'),
                            dtype=('i4', 'i4', 'f8', 'f8', 'f8'))
         star_groups = star_groups.group_by('group_id')
+
         indices = np.indices(image.shape)
 
         for n in range(len(star_groups.groups)):
@@ -234,7 +239,8 @@ class DAOPhotPSFPhotometry(object):
             param_table = self._model_params2table(fit_model,
                                                    star_groups.groups[n])
             result_tab = vstack([result_tab, param_table])
-            image = subtract_psf(image, self.psf, param_table)
+            image = subtract_psf(image, self.psf, param_table,
+                                 subshape=self.fitshape)
         return result_tab, image
 
     def _model_params2table(self, fit_model, star_group):
@@ -243,7 +249,11 @@ class DAOPhotPSFPhotometry(object):
         
         Parameters
         ----------
-        fit_model : Fittable2DModel
+        fit_model : `astropy.modeling.Fittable2DModel` instance
+            PSF or PRF model to fit the data. Could be one of the models in
+            this package like `~photutils.psf.sandbox.DiscretePRF`,
+            `~photutils.psf.IntegratedGaussianPRF`, or any other suitable
+            2D model.
         star_group : ~astropy.table.Table
         
         Returns
@@ -251,7 +261,7 @@ class DAOPhotPSFPhotometry(object):
         param_tab : ~astropy.table.Table
             Table that contains the fitted parameters.
         """
-
+        
         param_tab = Table([[], [], [], [], []],
                           names=('id', 'group_id', 'x_fit', 'y_fit',
                                  'flux_fit'),
