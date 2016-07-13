@@ -53,7 +53,7 @@ class TestDAOPhotPSFPhotometry(object):
                                                 bkg=median_bkg, psf=psf_model,
                                                 fitter=LevMarLSQFitter(),
                                                 niters=1, fitshape=(11,11))
-        
+
         result_tab, residual_image = nstar_photometry(image)
 
         assert_allclose(result_tab['x_fit'], sources['x_mean'], rtol=1e-1)
