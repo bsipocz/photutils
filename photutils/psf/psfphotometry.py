@@ -14,13 +14,13 @@ from ..extern.nddata_compat import extract_array
 __all__ = ['PSFPhotometryBase', 'DAOPhotPSFPhotometry']
 
 
-class PSFPhotometryBase(abc.ABCMeta):
+@six.add_metaclass(abc.ABCMeta)
+class PSFPhotometryBase(object):
     @abc.abstractmethod
-    def do_photometry(self):
+    def do_photometry(self, image):
         pass
 
-@six.add_metaclass(PSFPhotometryBase)
-class DAOPhotPSFPhotometry(object):
+class DAOPhotPSFPhotometry(PSFPhotometryBase):
     """
     This class implements the DAOPHOT algorithm proposed by Stetson
     (1987) to perform point spread function photometry in crowded fields,
