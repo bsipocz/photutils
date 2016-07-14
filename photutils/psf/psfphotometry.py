@@ -55,9 +55,9 @@ class DAOPhotPSFPhotometry(PSFPhotometryBase):
             column ``group_id`` should cotain integers starting from ``1``
             that indicate in which group a given source belongs to.
             See, e.g., `~photutils.psf.DAOGroup`
-        bkg : callable or instance of any BackgroundBase subclasses
-            ``bkg`` should be able to compute either a scalar background or a
-            2D background of a given 2D image.
+        bkg : callable or instance of any `~photutils.BackgroundBase`
+            subclasses ``bkg`` should be able to compute either a scalar
+            background or a 2D background of a given 2D image.
             See, e.g., `~photutils.background.MedianBackground`
         psf : `astropy.modeling.Fittable2DModel` instance
             PSF or PRF model to fit the data. Could be one of the models in

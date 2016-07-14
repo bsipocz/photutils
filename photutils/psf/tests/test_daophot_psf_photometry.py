@@ -36,7 +36,7 @@ class TestDAOPhotPSFPhotometry(object):
         # background noise (Poisson)
         image = (make_gaussian_sources(tshape, sources) +
                  make_noise_image(tshape, type='poisson', mean=6.,
-                                  random_state=1) + 
+                                  random_state=1) +
                  make_noise_image(tshape, type='gaussian', mean=0.,
                                   stddev=2., random_state=1)) 
 
