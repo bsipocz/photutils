@@ -7,7 +7,7 @@ import numpy as np
 from astropy.extern import six
 from astropy.table import Table, vstack
 from astropy.modeling.fitting import LevMarLSQFitter
-from astropy.nddata.utils import overlap_slices
+from astropy.nddata.utils import overlap_slices, NoOverlapError
 from ..psf import subtract_psf
 
 
@@ -165,11 +165,17 @@ class DAOPhotPSFPhotometry(PSFPhotometryBase):
         return self.do_photometry(image)
 
     def do_photometry(self, image):
-        outtab = self.build_output_table()
+        outtab = Table([[], [], [], [], [], []],
+                       names=('id', 'group_id', 'x_fit', 'y_fit', 'flux_fit',
+                            'iter_detected'),
+                       dtype=('i4', 'i4', 'f8', 'f8', 'f8', 'i4'))
+
         residual_image = image.copy()
         residual_image = residual_image - self.bkg(image)
+        # should skip the find step if the centroid
+        # coordinates are fixed
         sources = self.find(residual_image)
-        
+       
         n = 1
         while(n <= self.niters and len(sources) > 0):
             intab = Table(names=['id', 'x_0', 'y_0', 'flux_0'],
@@ -182,12 +188,6 @@ class DAOPhotPSFPhotometry(PSFPhotometryBase):
             sources = self.find(residual_image)
             n += 1
         return outtab, residual_image
-
-    def build_output_table(self):
-        return Table([[], [], [], [], [], []],
-                     names=('id', 'group_id', 'x_fit', 'y_fit', 'flux_fit',
-                            'iter_detected'),
-                     dtype=('i4', 'i4', 'f8', 'f8', 'f8', 'i4'))
 
     def get_uncertainties(self):
         """
@@ -244,8 +244,14 @@ class DAOPhotPSFPhotometry(PSFPhotometryBase):
             param_table = self._model_params2table(fit_model,
                                                    star_groups.groups[n])
             result_tab = vstack([result_tab, param_table])
-            image = subtract_psf(image, self.psf, param_table,
-                                 subshape=self.fitshape)
+           
+            # do not subtract if the fitting did not go well
+            try:
+                image = subtract_psf(image, self.psf, param_table,
+                                     subshape=self.fitshape)
+            except NoOverlapError:
+                pass
+
         return result_tab, image
 
     def _model_params2table(self, fit_model, star_group):
