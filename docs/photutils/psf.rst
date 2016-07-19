@@ -28,9 +28,35 @@ model-fitting analysis, regardless to exactly what kind of model is actually
 being fit.  We take this road, using "PSF photometry" as shorthand for the
 general approach.
 
-Basic Usage
------------
+PSF Photometry in Crowded Fields
+--------------------------------
 
+Photutils provides an implementation of the DAOPHOT algorithm
+(`~photutils.psf.DAOPhotPSFPhotometry`) proposed by Stetson in his
+seminal paper for crowded-field stellar photometry.
+
+Basically, DAOPHOT works as follows. The first step is to estimate the sky
+background. For this task, photutils provides several classes to compute
+scalar and 2D backgrounds, see `~photutils.background`. The next step is 
+to find an initial estimate of the positions of potential sources. This can
+be accomplished by using source detection algorithms, which are implemented
+in `~photutils.detection`.
+
+After finding sources one would apply a clustering algorithm in order to label
+the sources according to groups. Usually, those groups are formed by a
+distance criterion, which is the case of the grouping algorithm proposed
+by Stetson. In `~photutils.psf.DAOGroup`, we provide an implementation of
+this algorithm.
+
+Provided that the groups are available, the next step is to fit the sources
+simultaneously within each group. This task can be done using an astropy
+fitter, for instance, `~astropy.modeling.fitting.LevMarLSQFitter`.
+
+After sources are fitted, they are subtracted from the given image
+and, after fitting all sources, the residual image is analyzed by the finding
+routine again in order to check if there is any source which has not been
+fitted. This process goes on until no more sources are identified by the
+finding routine.
 
 
 Example Notebooks (online)
