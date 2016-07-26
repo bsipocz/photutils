@@ -218,13 +218,15 @@ class DAOPhotPSFPhotometry(PSFPhotometryBase):
         residual_image = image.copy()
         residual_image = residual_image - self.bkg(image)
 
+        #TODO: That's not the correct way of doing
         if 'flux_0' in positions.colnames:
                intab = Table(names=['x_0', 'y_0', 'flux_0'],
                              data=[positions['x_0'], positions['y_0'],
                                    positions['flux_0']])
         else:
-            intab = Table(names=['x_0', 'y_0'],
-                          data=[positions['x_0'], positions['y_0']])
+            intab = Table(names=['x_0', 'y_0', 'flux_0'],
+                          data=[positions['x_0'], positions['y_0'],
+                                np.ones(len(positions))])
 
         star_groups = self.group(intab)
         outtab, residual_image = self.nstar(residual_image, star_groups)
@@ -314,7 +316,7 @@ class DAOPhotPSFPhotometry(PSFPhotometryBase):
         param_tab : ~astropy.table.Table
             Table that contains the fitted parameters.
         """
-        
+
         param_tab = Table([[], [], [], [], []],
                           names=('id', 'group_id', 'x_fit', 'y_fit',
                                  'flux_fit'),
@@ -360,6 +362,7 @@ class DAOPhotPSFPhotometry(PSFPhotometryBase):
                 models.
             """
             
+            #TODO: I should not assume that 'flux_0' will be provided
             psf_class = type(self.psf)
             group_psf = psf_class(sigma=self.psf.sigma.value,
                                   flux=self.star_group['flux_0'][0],

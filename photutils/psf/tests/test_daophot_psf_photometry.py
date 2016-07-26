@@ -63,6 +63,25 @@ class TestDAOPhotPSFPhotometry(object):
         assert_array_equal(result_tab['group_id'], sources['group_id'])
         assert_allclose(np.mean(residual_image), 0.0, atol=1e1)
 
+        # test fixed photometry
+        psf_model.x_0.fixed = True
+        psf_model.y_0.fixed = True
+        phot = DAOPhotPSFPhotometry(group=daogroup, bkg=median_bkg,
+                                    psf=psf_model, fitter=LevMarLSQFitter(),
+                                    fitshape=(11,11))
+
+        pos = Table(names=['x_0', 'y_0'], data=[sources['x_mean'],
+                                              sources['y_mean']])
+        result_tab, residual_image = phot.do_fixed_photometry(image, pos)
+
+        assert_array_equal(result_tab['x_fit'], sources['x_mean'])
+        assert_array_equal(result_tab['y_fit'], sources['y_mean'])
+        assert_allclose(result_tab['flux_fit'], sources['flux'], rtol=1e-1)
+        assert_array_equal(result_tab['id'], sources['id'])
+        assert_array_equal(result_tab['group_id'], sources['group_id'])
+        assert_allclose(np.mean(residual_image), 0.0, atol=1e1)
+
+
     def test_complete_photometry_two(self):
         sigma_psf = 2.0
         sources = Table()
