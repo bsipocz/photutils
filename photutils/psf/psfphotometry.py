@@ -29,7 +29,7 @@ class DAOPhotPSFPhotometry(PSFPhotometryBase):
     iterations is reached.
     """
 
-    def __init__(self, find, group, bkg, psf, fitshape,
+    def __init__(self, group, bkg, psf, fitshape, find=None,
                  fitter=LevMarLSQFitter(), niters=3):
         """
         Attributes
@@ -188,6 +188,21 @@ class DAOPhotPSFPhotometry(PSFPhotometryBase):
             sources = self.find(residual_image)
             n += 1
         return outtab, residual_image
+
+    def do_fixed_photometry(self, image, positions):
+        residual_image = image.copy()
+        residual_image = residual_image - self.bkg(image)
+
+        if 'flux_0' is not in positions.colnames:
+            positions['flux_0'] = np.ones(len(positions))
+               
+        intab = Table(names=['x_0', 'y_0', 'flux_0'],
+                      data=[positions['x_0'], positions['y_0'],
+                            positions['flux_0']])
+        star_groups = self.group(intab)
+        result_tab, residual_image = self.nstar(residual_image, star_groups)
+        
+        return result_tab, residual_image
 
     def get_uncertainties(self):
         """
