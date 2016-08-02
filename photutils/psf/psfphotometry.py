@@ -160,6 +160,16 @@ class DAOPhotPSFPhotometry(PSFPhotometryBase):
             Positions, in pixel coordinates, at which stars are located.
             The columns must be named as 'x_0' and 'y_0'. 'flux_0' can also
             be provided to set initial fluxes.
+
+        Returns
+        -------
+        outtab : `~astropy.table.Table`
+            Table with the photometry results, i.e., centroids and fluxes
+            estimations.
+        residual_image : array-like, `~astropy.io.fits.ImageHDU`,
+        `~astropy.io.fits.HDUList`
+            Residual image calculated by subtracting the fitted sources
+            and the original image.
         """
         
         if len(kwargs) == 1:
