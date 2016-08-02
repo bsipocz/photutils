@@ -22,8 +22,8 @@ class TestDAOPhotPSFPhotometry(object):
         """
         sigma_psf = 2.0
         sources = Table()
-        sources['flux'] = [800, 800]
-        sources['x_mean'] = [18, 13]
+        sources['flux'] = [800, 1000]
+        sources['x_mean'] = [13, 18]
         sources['y_mean'] = [16, 16]
         sources['x_stddev'] = [sigma_psf, sigma_psf]
         sources['y_stddev'] = sources['x_stddev']
@@ -85,9 +85,9 @@ class TestDAOPhotPSFPhotometry(object):
     def test_complete_photometry_two(self):
         sigma_psf = 2.0
         sources = Table()
-        sources['flux'] = [700, 700, 700, 700]
-        sources['x_mean'] = [17, 12, 17, 12]
-        sources['y_mean'] = [20, 20, 15, 15]
+        sources['flux'] = [700, 800, 700, 800]
+        sources['x_mean'] = [12, 17, 12, 17]
+        sources['y_mean'] = [15, 15, 20, 20]
         sources['x_stddev'] = sigma_psf*np.ones(4)
         sources['y_stddev'] = sources['x_stddev']
         sources['theta'] = [0, 0, 0, 0]
