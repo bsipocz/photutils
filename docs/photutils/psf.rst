@@ -67,6 +67,7 @@ Example Notebooks (online)
 
 References
 ----------
+
 `Spitzer PSF vs. PRF
 <http://irsa.ipac.caltech.edu/data/SPITZER/docs/files/spitzer/PRF_vs_PSF.pdf>`_
 
@@ -77,10 +78,7 @@ References
 <http://adsabs.harvard.edu/abs/2010ApJ...713L..97B>`_
 
 `Stetson, Astronomical Society of the Pacific, Publications, (ISSN 0004-6280),
-vol. 99, March 1987, p. 191-222.
-<http://adsabs.harvard.edu/abs/1987PASP...99..191S
->`_
-
+vol. 99, March 1987, p. 191-222. <http://adsabs.harvard.edu/abs/1987PASP...99..191S>`_
 
 Reference/API
 -------------

@@ -293,8 +293,8 @@ class DAOPhotPSFPhotometry(PSFPhotometryBase):
             ``x_0`` and ``y_0`` are initial estimates of the centroids
             and ``flux_0`` is an initial estimate of the flux.
 
-        Return
-        ------
+        Returns
+        -------
         result_tab : `~astropy.table.Table`
             Astropy table that contains photometry results.
         image : numpy.ndarray

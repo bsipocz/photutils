@@ -4,6 +4,7 @@ import numpy as np
 from astropy.table import Table
 from astropy.stats import gaussian_sigma_to_fwhm
 from astropy.modeling.fitting import LevMarLSQFitter
+from astropy.tests.helper import pytest
 from numpy.testing import assert_allclose, assert_array_equal
 from ..models import IntegratedGaussianPRF
 from ...datasets import make_gaussian_sources
@@ -14,7 +15,13 @@ from ...detection import DAOStarFinder
 from ...background import MedianBackground
 from ...background import StdBackgroundRMS
 
+try:
+    import scipy
+    HAS_SCIPY = True
+except ImportError:
+    HAS_SCIPY = False
 
+@pytest.mark.skipif('not HAS_SCIPY')
 class TestDAOPhotPSFPhotometry(object):
     def test_complete_photometry_one(self):
         """
@@ -22,14 +29,14 @@ class TestDAOPhotPSFPhotometry(object):
         """
         sigma_psf = 2.0
         sources = Table()
-        sources['flux'] = [800, 1000]
-        sources['x_mean'] = [13, 18]
-        sources['y_mean'] = [16, 16]
-        sources['x_stddev'] = [sigma_psf, sigma_psf]
+        sources['flux'] = [800, 1000, 1200]
+        sources['x_mean'] = [13, 18, 25]
+        sources['y_mean'] = [16, 16, 25]
+        sources['x_stddev'] = [sigma_psf, sigma_psf, sigma_psf]
         sources['y_stddev'] = sources['x_stddev']
-        sources['theta'] = [0, 0]
-        sources['id'] = [1, 2]
-        sources['group_id'] = [1, 1]
+        sources['theta'] = [0, 0, 0]
+        sources['id'] = [1, 2, 3]
+        sources['group_id'] = [1, 1, 2]
         tshape = (32, 32)
         
         # generate image with read-out noise (Gaussian) and
@@ -141,4 +148,3 @@ class TestDAOPhotPSFPhotometry(object):
         assert_array_equal(result_tab['id'], sources['id'])
         assert_array_equal(result_tab['group_id'], sources['group_id'])
         assert_allclose(np.mean(residual_image), 0.0, atol=1e1)
-
