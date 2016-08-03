@@ -32,7 +32,7 @@ class DAOPhotPSFPhotometry(PSFPhotometryBase):
     """
 
     def __init__(self, group, bkg, psf, fitshape, find=None,
-                 fitter=LevMarLSQFitter(), niters=3):
+                 fitter=LevMarLSQFitter(), niters=3, aperture_radius=None):
         """
         Attributes
         ----------
@@ -91,6 +91,9 @@ class DAOPhotPSFPhotometry(PSFPhotometryBase):
         niters : int (default=3)
             Number of iterations to perform the loop FIND, GROUP, SUBTRACT,
             NSTAR.
+        aperture_radius : float (default=None)
+            The radius used to compute initial estimates for the fluxes of
+            sources. If ``None``, one fwhm will be used. 
 
         Notes
         -----
@@ -114,6 +117,7 @@ class DAOPhotPSFPhotometry(PSFPhotometryBase):
         self.fitter = fitter
         self.niters = niters
         self.fitshape = fitshape
+        self.aperture_radius = aperture_radius
 
         @property
         def niters(self):
@@ -151,13 +155,27 @@ class DAOPhotPSFPhotometry(PSFPhotometryBase):
                 raise ValueError('fitshape must have two dimensions, '
                                  'received fitshape = {}'.format(fitshape))
 
-    def __call__(self, **kwargs):
+        @property
+        def aperture_radius(self):
+            return self._aperture_radius
+
+        @niters.setter
+        def aperture_radius(self, aperture_radius):
+            if isinstance(aperture_radius, (int, float)) and aperture_radius > 0:
+                self._aperture_radius = aperture_radius
+            else:
+                raise ValueError('aperture_radius must be a real-valued '
+                                 'number, received aperture_radius = {}'
+                                 .format(aperture_radius))
+
+
+    def __call__(self, image, positions=None):
         """
         Parameters
         ----------
         image : 2D array-like, `~astropy.io.fits.ImageHDU`,
         `~astropy.io.fits.HDUList`
-            Image to perform photometry
+            Image to perform photometry.
         positions : `~astropy.table.Table` (optional)
             Positions, in pixel coordinates, at which stars are located.
             The columns must be named as 'x_0' and 'y_0'. 'flux_0' can also
@@ -174,10 +192,10 @@ class DAOPhotPSFPhotometry(PSFPhotometryBase):
             and the original image.
         """
         
-        if len(kwargs) == 1:
-            return self.do_photometry(kwargs['image'])
-        elif len(kwargs) == 2:
-            return self.do_fixed_photometry(kwargs['image'], kwargs['positions'])
+        if positions is None:
+            return self.do_photometry(image)
+        else:
+            return self.do_fixed_photometry(image, positions)
 
     def do_photometry(self, image):
         """
@@ -206,11 +224,13 @@ class DAOPhotPSFPhotometry(PSFPhotometryBase):
         residual_image = image.copy()
         residual_image = residual_image - self.bkg(image)
         sources = self.find(residual_image)
+        
+        if self.aperture_radius is None:
+            self.aperture_radius = self.psf.sigma.value*gaussian_sigma_to_fwhm
 
         apertures = CircularAperture((sources['xcentroid'],
                                       sources['ycentroid']),
-                                     r=self.psf.sigma.value*\
-                                       gaussian_sigma_to_fwhm)
+                                     r=self.aperture_radius)
 
         sources['flux'] = aperture_photometry(residual_image,
                                               apertures)['aperture_sum']
@@ -224,6 +244,13 @@ class DAOPhotPSFPhotometry(PSFPhotometryBase):
             tab['iter_detected'] = n*np.ones(tab['x_fit'].shape, dtype=np.int)
             outtab = vstack([outtab, tab])
             sources = self.find(residual_image)
+
+            if len(sources) > 0:
+                apertures = CircularAperture((sources['xcentroid'],
+                                              sources['ycentroid']),
+                                             r=self.aperture_radius)
+                sources['flux'] = aperture_photometry(residual_image,
+                                                      apertures)['aperture_sum']
             n += 1
         return outtab, residual_image
 
@@ -254,9 +281,11 @@ class DAOPhotPSFPhotometry(PSFPhotometryBase):
         residual_image = residual_image - self.bkg(image)
 
         if 'flux_0' not in positions.colnames:
+            if self.aperture_radius is None:
+                 self.aperture_radius = self.psf.sigma.value*\
+                                        gaussian_sigma_to_fwhm
             apertures = CircularAperture((positions['x_0'], positions['y_0']),
-                                         r=self.psf.sigma.value*\
-                                           gaussian_sigma_to_fwhm)
+                                         r=self.aperture_radius)
 
             positions['flux_0'] = aperture_photometry(residual_image,\
                                         apertures)['aperture_sum']
@@ -279,9 +308,9 @@ class DAOPhotPSFPhotometry(PSFPhotometryBase):
     def nstar(self, image, star_groups):
         """
         Fit, as appropriate, a compound or single model to the given
-        `star_groups`. Groups are fitted sequentially from the smallest to
-        the biggest. In each iteration, `image` is subtracted by the previous
-        fitted group. 
+        ``star_groups``. Groups are fitted sequentially from the smallest to
+        the biggest. In each iteration, ``image`` is subtracted by the
+        previous fitted group.
         
         Parameters
         ----------
@@ -404,11 +433,14 @@ class DAOPhotPSFPhotometry(PSFPhotometryBase):
                                   flux=self.star_group['flux_0'][0],
                                   x_0=self.star_group['x_0'][0],
                                   y_0=self.star_group['y_0'][0],
-                                  fixed=self.psf.fixed)
+                                  fixed=self.psf.fixed, tied=self.psf.tied,
+                                  bounds=self.psf.bounds)
             for i in range(len(self.star_group) - 1):
                 group_psf += psf_class(sigma=self.psf.sigma.value,
                                        flux=self.star_group['flux_0'][i+1],
                                        x_0=self.star_group['x_0'][i+1],
                                        y_0=self.star_group['y_0'][i+1],
-                                       fixed=self.psf.fixed)
+                                       fixed=self.psf.fixed,
+                                       tied=self.psf.tied,
+                                       bounds=self.psf.bounds)
             return group_psf

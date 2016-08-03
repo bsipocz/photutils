@@ -24,8 +24,8 @@ from .core import find_peaks
 from ..utils.convolution import filter_data
 
 
-__all__ = ['DAOStarFinder', 'IRAFStarFinder', 'StarFinderBase',
-           'daofind', 'irafstarfind']
+__all__ = ['DAOStarFinder', 'IRAFStarFinder', 'PeakFinder',
+           'StarFinderBase', 'daofind', 'irafstarfind']
 
 
 class _ABCMetaAndInheritDocstrings(InheritDocstrings, abc.ABCMeta):
@@ -326,6 +326,61 @@ class IRAFStarFinder(StarFinderBase):
         self.exclude_border = exclude_border
 
     def find_stars(self, data):
+        """
+        Parameters
+        ----------
+        data : array_like
+            The 2D array of the image.
+        
+        Returns
+        -------
+        table : `~astropy.table.Table`
+
+            A table of found objects with the following parameters:
+
+            * ``id``: unique object identification number.
+            * ``xcentroid, ycentroid``: object centroid (zero-based origin).
+            * ``fwhm``: estimate of object FWHM from image moments.
+            * ``sharpness``: object sharpness calculated from image moments.
+            * ``roundness``: object ellipticity calculated from image moments.
+            * ``pa``:  object position angle in degrees from the positive x
+              axis calculated from image moments.
+            * ``npix``: number of pixels in the object used to calculate
+              ``flux``.
+            * ``sky``: the derived background sky value, unless ``sky`` was
+              input.  If ``sky`` was input, then that value overrides the
+              background sky estimation.
+            * ``peak``: the peak, sky-subtracted, pixel value of the object.
+            * ``flux``: the object sky-subtracted flux, calculated by
+              summing object pixels over the Gaussian kernel.  The
+              derivation matches that of `starfind`_ if ``sky`` is ``None``.
+            * ``mag``: the object instrumental magnitude calculated as
+              ``-2.5 * log10(flux)``.  The derivation matches that of
+              `starfind`_ if ``sky`` is ``None``.
+        
+        Notes
+        -----
+        For the convolution step, this routine sets pixels beyond the image
+        borders to 0.0.  The equivalent parameters in `starfind`_ are
+        ``boundary='constant'`` and ``constant=0.0``.
+
+        IRAF's `starfind`_ uses ``hwhmpsf``, ``fradius``, and ``sepmin`` as
+        input parameters.  The equivalent input values for ``IRAFStarFinder``
+        are:
+
+        * ``fwhm = hwhmpsf * 2``
+        * ``sigma_radius = fradius * sqrt(2.0*log(2.0))``
+        * ``minsep_fwhm = 0.5 * sepmin``
+
+        The main differences between ``daofind`` and ``irafstarfind`` are:
+
+        * ``IRAFStarFinder`` always uses a 2D circular Gaussian kernel,
+          while ``DAOStarFinder`` can use an elliptical Gaussian kernel.
+
+        * ``IRAFStarFinder`` calculates the objects' centroid, roundness,
+          and sharpness using image moments.
+        """
+
         starfind_kernel = _FindObjKernel(self.fwhm, ratio=1.0, theta=0.0,
                                          sigma_radius=self.sigma_radius)
         min_separation = max(2, int((self.fwhm * self.minsep_fwhm) + 0.5))
@@ -347,6 +402,135 @@ class IRAFStarFinder(StarFinderBase):
             warnings.warn('Sources were found, but none pass the sharpness '
                           'and roundness criteria.', AstropyUserWarning)
         return tbl
+
+
+class PeakFinder(StarFinderBase):
+    """
+    Find local peaks in an image that are above above a specified
+    threshold value.
+
+    Peaks are the maxima above the ``threshold`` within a local region.
+    The regions are defined by either the ``box_size`` or ``footprint``
+    parameters.  ``box_size`` defines the local region around each pixel
+    as a square box.  ``footprint`` is a boolean array where `True`
+    values specify the region shape.
+
+    If multiple pixels within a local region have identical intensities,
+    then the coordinates of all such pixels are returned.  Otherwise,
+    there will be only one peak pixel per local region.  Thus, the
+    defined region effectively imposes a minimum separation between
+    peaks (unless there are identical peaks within the region).
+
+    When using subpixel precision (``subpixel=True``), then a cutout of
+    the specified ``box_size`` or ``footprint`` will be taken centered
+    on each peak and fit with a 2D Gaussian (plus a constant).  In this
+    case, the fitted local centroid and peak value (the Gaussian
+    amplitude plus the background constant) will also be returned in the
+    output table.
+
+    Parameters
+    ----------
+    threshold : float or array-like
+        The data value or pixel-wise data values to be used for the
+        detection threshold.  A 2D ``threshold`` must have the same
+        shape as ``data``.  See `detect_threshold` for one way to create
+        a ``threshold`` image.
+
+    box_size : scalar or tuple, optional
+        The size of the local region to search for peaks at every point
+        in ``data``.  If ``box_size`` is a scalar, then the region shape
+        will be ``(box_size, box_size)``.  Either ``box_size`` or
+        ``footprint`` must be defined.  If they are both defined, then
+        ``footprint`` overrides ``box_size``.
+
+    footprint : `~numpy.ndarray` of bools, optional
+        A boolean array where `True` values describe the local footprint
+        region within which to search for peaks at every point in
+        ``data``.  ``box_size=(n, m)`` is equivalent to
+        ``footprint=np.ones((n, m))``.  Either ``box_size`` or
+        ``footprint`` must be defined.  If they are both defined, then
+        ``footprint`` overrides ``box_size``.
+
+    mask : array_like, bool, optional
+        A boolean mask with the same shape as ``data``, where a `True`
+        value indicates the corresponding element of ``data`` is masked.
+
+    border_width : bool, optional
+        The width in pixels to exclude around the border of the
+        ``data``.
+
+    npeaks : int, optional
+        The maximum number of peaks to return.  When the number of
+        detected peaks exceeds ``npeaks``, the peaks with the highest
+        peak intensities will be returned.
+
+    subpixel : bool, optional
+        If `True`, then a cutout of the specified ``box_size`` or
+        ``footprint`` will be taken centered on each peak and fit with a
+        2D Gaussian (plus a constant).  In this case, the fitted local
+        centroid and peak value (the Gaussian amplitude plus the
+        background constant) will also be returned in the output table.
+
+    error : array_like, optional
+        The 2D array of the 1-sigma errors of the input ``data``.
+        ``error`` is used only to weight the 2D Gaussian fit performed
+        when ``subpixel=True``.
+
+    wcs : `~astropy.wcs.WCS`
+        The WCS transformation to use to convert from pixel coordinates
+        to ICRS world coordinates.  If `None`, then the world
+        coordinates will not be returned in the output
+        `~astropy.table.Table`.
+    """
+
+    def __init__(self, threshold, box_size=3, footprint=None, mask=None,
+                 border_width=None, npeaks=np.inf, subpixel=True, error=None,
+                 wcs=None):
+        self.threshold = threshold
+        self.box_size = box_size
+        self.footprint = footprint
+        self.mask = mask
+        self.border_width = border_width
+        self.npeaks = npeaks
+        self.subpixel = subpixel
+        self.error = error
+        self.wcs = wcs
+
+    def __call__(self, data):
+        return self.find_stars(data)
+
+    def find_stars(self, data):
+        """
+        Parameters
+        ----------
+        data : array_like
+            The 2D array of the image.
+
+        Returns
+        -------
+        output : `~astropy.table.Table`
+            A table containing the x and y pixel location of the peaks and
+            their values.  If ``subpixel=True``, then the table will also
+            contain the local centroid and fitted peak value.
+        """
+
+        peaks = find_peaks(data, threshold=self.threshold,
+                           box_size=self.box_size, footprint=self.footprint,
+                           mask=self.mask, border_width=self.border_width,
+                           npeaks=self.npeaks, subpixel=self.subpixel,
+                           error=self.error, wcs=self.wcs)
+
+        if len(peaks) > 0:
+            if self.subpixel:
+                peaks['y_centroid'].name = 'ycentroid'
+                peaks['x_centroid'].name = 'xcentroid'
+            else:
+                peaks['y_peak'].name = 'ycentroid'
+                peaks['x_peak'].name = 'xcentroid'
+
+            peaks['id'] = np.arange(len(peaks)) + 1
+
+        return peaks
 
 
 def _findobjs(data, threshold, kernel, min_separation=None,
