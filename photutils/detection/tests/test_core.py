@@ -10,7 +10,6 @@ from astropy.stats import gaussian_fwhm_to_sigma
 from astropy.wcs import WCS
 from ..core import (detect_threshold, detect_sources, find_peaks,
                     make_source_mask)
-from ..findstars import PeakFinder
 from ...datasets import make_4gaussians_image
 
 try:
