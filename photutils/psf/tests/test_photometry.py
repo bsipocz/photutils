@@ -1,6 +1,7 @@
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 from __future__ import division
 import numpy as np
+import astropy
 from astropy.table import Table
 from astropy.stats import gaussian_sigma_to_fwhm
 from astropy.modeling.fitting import LevMarLSQFitter
@@ -21,6 +22,13 @@ try:
 except ImportError:
     HAS_SCIPY = False
 
+if astropy.__version__ < '1.2':
+    HAS_MIN_ASTROPY = False
+else:
+    HAS_MIN_ASTROPY = True
+    
+
+@pytest.mark.skipif('not HAS_MIN_ASTROPY')
 @pytest.mark.skipif('not HAS_SCIPY')
 class TestDAOPhotPSFPhotometry(object):
     def test_complete_photometry_one(self):
