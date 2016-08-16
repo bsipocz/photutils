@@ -228,12 +228,13 @@ class DAOPhotPSFPhotometry(object):
             if hasattr(self.psf, 'fwhm'):
                 self.aperture_radius = self.psf.fwhm.value
             elif hasattr(self.psf, 'sigma'):
-                self.aperture_radius = self.psf.sigma.value*gaussian_sigma_to_fwhm
+                self.aperture_radius = self.psf.sigma.value*\
+                                       gaussian_sigma_to_fwhm
 
         if positions is None:
             outtab = Table([[], [], [], [], [], []],
-                           names=('id', 'group_id', 'x_fit', 'y_fit', 'flux_fit',
-                                  'iter_detected'),
+                           names=('id', 'group_id', 'x_fit', 'y_fit',
+                                  'flux_fit', 'iter_detected'),
                            dtype=('i4', 'i4', 'f8', 'f8', 'f8', 'i4'))
             
             sources = self.find(residual_image)
@@ -251,7 +252,8 @@ class DAOPhotPSFPhotometry(object):
                               sources['ycentroid'], sources['aperture_flux']])
                 star_groups = self.group(intab)
                 tab, residual_image = self.nstar(residual_image, star_groups)
-                tab['iter_detected'] = n*np.ones(tab['x_fit'].shape, dtype=np.int)
+                tab['iter_detected'] = n*np.ones(tab['x_fit'].shape,
+                                                 dtype=np.int)
                 outtab = vstack([outtab, tab])
                 sources = self.find(residual_image)
 
@@ -259,12 +261,13 @@ class DAOPhotPSFPhotometry(object):
                     apertures = CircularAperture((sources['xcentroid'],
                                                   sources['ycentroid']),
                                                  r=self.aperture_radius)
-                    sources['flux'] = aperture_photometry(residual_image,
-                                                          apertures)['aperture_sum']
+                    sources['flux'] = aperture_photometry(residual_image,\
+                                                apertures)['aperture_sum']
                 n += 1
         else:
             if 'flux_0' not in positions.colnames:
-                apertures = CircularAperture((positions['x_0'], positions['y_0']),
+                apertures = CircularAperture((positions['x_0'],
+                                              positions['y_0']),
                                              r=self.aperture_radius)
 
                 positions['flux_0'] = aperture_photometry(residual_image,\
