@@ -13,16 +13,10 @@ from ..psf import subtract_psf
 from ..aperture import CircularAperture, aperture_photometry
 
 
-__all__ = ['PSFPhotometryBase', 'DAOPhotPSFPhotometry']
+__all__ = ['DAOPhotPSFPhotometry']
 
 
-@six.add_metaclass(abc.ABCMeta)
-class PSFPhotometryBase(object):
-    @abc.abstractmethod
-    def do_photometry(self, image):
-        pass
-
-class DAOPhotPSFPhotometry(PSFPhotometryBase):
+class DAOPhotPSFPhotometry(object):
     """
     This class implements the DAOPHOT algorithm proposed by Stetson
     (1987) to perform point spread function photometry in crowded fields,
@@ -69,16 +63,10 @@ class DAOPhotPSFPhotometry(PSFPhotometryBase):
             This object needs to identify three parameters (position of
             center in x and y coordinates and the flux) in order to set them
             to suitable starting values for each fit. The names of these
-            parameters can be given as follows:
-
-            - Set ``psf.psf_xname``, ``psf.psf_yname`` and
-              ``psf.psf_fluxname`` to strings with the names of the respective
-              psf model parameter.
-            - If those attributes are not found, the names ``x_0``, ``y_0``
-              and ``flux`` are assumed.
+            parameters should be given as ``x_0``, ``y_0`` and ``flux``.
 
             `~photutils.psf.prepare_psf_model` can be used to prepare any 2D
-            model to match these assumptions.
+            model to match this assumption.
         fitshape : array-like
             Rectangular shape around the center of a star which will be used
             to collect the data to do the fitting, e.g. (5, 5) means to take
@@ -92,8 +80,8 @@ class DAOPhotPSFPhotometry(PSFPhotometryBase):
             Number of iterations to perform the loop FIND, GROUP, SUBTRACT,
             NSTAR.
         aperture_radius : float (default=None)
-            The radius used to compute initial estimates for the fluxes of
-            sources. If ``None``, one fwhm will be used. 
+            The radius (in units of pixels) used to compute initial estimates
+            for the fluxes of sources. If ``None``, one fwhm will be used. 
 
         Notes
         -----
@@ -119,54 +107,58 @@ class DAOPhotPSFPhotometry(PSFPhotometryBase):
         self.fitshape = fitshape
         self.aperture_radius = aperture_radius
 
-        @property
-        def niters(self):
-            return self._niters
+    @property
+    def niters(self):
+        return self._niters
 
-        @niters.setter
-        def niters(self, niters):
-            if isinstance(niters, int) and niters > 0:
-                self._niters = niters
+    @niters.setter
+    def niters(self, value):
+        try:
+            if value <= 0:
+                raise ValueError('niters must be positive.')
             else:
-                raise ValueError('niters must be an interger-valued number, '
-                                 'received niters = {}'.format(niters))
-        
-        @property
-        def fitshape(self):
-            return self._fitshape
+                self._niters = int(value)
+        except:
+            raise ValueError('niters must be an integer or convertable '
+                             'into an integer.')
+    
+    @property
+    def fitshape(self):
+        return self._fitshape
 
-        @fitshape.setter
-        def fitshape(self, fitshape):
-            fitshape = np.asarray(fitshape)
-            if len(fitshape) == 2:
-                if np.all(fitshape) > 0:
-                    if np.all(fitshape) % 2 == 1:
-                        self._fitshape = fitshape
-                    else:
-                        raise ValueError('fitshape must be odd '
-                                         'integer-valued, '
-                                         'received fitshape = {}'\
-                                         .format(fitshape))
+    @fitshape.setter
+    def fitshape(self, value):
+        value = np.asarray(value)
+        if value.size == 2:
+            if np.all(value) > 0:
+                if np.all(value % 2) == 1:
+                    self._fitshape = tuple(value)
                 else:
-                    raise ValueError('fitshape must have positive elements, '
+                    raise ValueError('fitshape must be odd integer-valued, '
                                      'received fitshape = {}'\
-                                     .format(fitshape))
+                                     .format(value))
             else:
-                raise ValueError('fitshape must have two dimensions, '
-                                 'received fitshape = {}'.format(fitshape))
+                raise ValueError('fitshape must have positive elements, '
+                                 'received fitshape = {}'\
+                                 .format(value))
+        else:
+            raise ValueError('fitshape must have two dimensions, '
+                             'received fitshape = {}'.format(value))
 
-        @property
-        def aperture_radius(self):
-            return self._aperture_radius
+    @property
+    def aperture_radius(self):
+        return self._aperture_radius
 
-        @niters.setter
-        def aperture_radius(self, aperture_radius):
-            if isinstance(aperture_radius, (int, float)) and aperture_radius > 0:
-                self._aperture_radius = aperture_radius
-            else:
-                raise ValueError('aperture_radius must be a real-valued '
-                                 'number, received aperture_radius = {}'
-                                 .format(aperture_radius))
+    @aperture_radius.setter
+    def aperture_radius(self, value):
+        if isinstance(value, (int, float)) and value > 0:
+            self._aperture_radius = value
+        elif value is None:
+            self._aperture_radius = value
+        else:
+            raise ValueError('aperture_radius must be a real-valued '
+                             'number, received aperture_radius = {}'
+                             .format(value))
 
 
     def __call__(self, image, positions=None):
@@ -199,11 +191,18 @@ class DAOPhotPSFPhotometry(PSFPhotometryBase):
 
     def do_photometry(self, image):
         """
+        Perform PSF photometry in ``image``. This method assumes that
+        ``psf`` has centroids and flux parameters which will be fitted to the
+        data provided in ``image``. A compound model, in fact a sum of
+        ``psf``, will be fitted to groups of starts automatically identified
+        by ``group``. Also, ``image`` is not assumed to be background
+        subtracted.
+
         Parameters
         ----------
         image : 2D array-like, `~astropy.io.fits.ImageHDU`,
         `~astropy.io.fits.HDUList`
-            Image to perform photometry
+            Image to perform photometry.
         
         Returns
         -------
@@ -226,19 +225,22 @@ class DAOPhotPSFPhotometry(PSFPhotometryBase):
         sources = self.find(residual_image)
         
         if self.aperture_radius is None:
-            self.aperture_radius = self.psf.sigma.value*gaussian_sigma_to_fwhm
+            if hasattr(self.psf, 'fwhm'):
+                self.aperture_radius = self.psf.fwhm.value
+            elif hasattr(self.psf, 'sigma'):
+                self.aperture_radius = self.psf.sigma.value*gaussian_sigma_to_fwhm
 
         apertures = CircularAperture((sources['xcentroid'],
                                       sources['ycentroid']),
                                      r=self.aperture_radius)
 
-        sources['flux'] = aperture_photometry(residual_image,
+        sources['aperture_flux'] = aperture_photometry(residual_image,
                                               apertures)['aperture_sum']
         n = 1
         while(n <= self.niters and len(sources) > 0):
             intab = Table(names=['id', 'x_0', 'y_0', 'flux_0'],
                           data=[sources['id'], sources['xcentroid'],
-                          sources['ycentroid'], sources['flux']])
+                          sources['ycentroid'], sources['aperture_flux']])
             star_groups = self.group(intab)
             tab, residual_image = self.nstar(residual_image, star_groups)
             tab['iter_detected'] = n*np.ones(tab['x_fit'].shape, dtype=np.int)
@@ -256,14 +258,21 @@ class DAOPhotPSFPhotometry(PSFPhotometryBase):
 
     def do_fixed_photometry(self, image, positions):
         """
+        Perform PSF photometry for the case that the centroid positions of the
+        starts are known with high accuracy. If the centroid positions are set
+        as ``fixed`` in the PSF model ``psf``, then the optimizer will only
+        consider the flux as a variable. Otherwise, ``positions`` will be used
+        as initial guesses for the centroids. Also, ``image`` is not assumed
+        to be background subtracted.
+
         Parameters
         ----------
         image : 2D array-like, `~astropy.io.fits.ImageHDU`,
         `~astropy.io.fits.HDUList`
             Image to perform photometry
         positions: `~astropy.table.Table`
-            Positions at which to *start* the fit for each object, in pixel
-            coordinates. Columns 'x_0' and 'y_0' must be present.
+            Positions (in pixel coordinates) at which to *start* the fit for
+            each object. Columns 'x_0' and 'y_0' must be present.
             'flux_0' can also be provided to set initial fluxes.
 
         Returns
@@ -287,12 +296,12 @@ class DAOPhotPSFPhotometry(PSFPhotometryBase):
             apertures = CircularAperture((positions['x_0'], positions['y_0']),
                                          r=self.aperture_radius)
 
-            positions['flux_0'] = aperture_photometry(residual_image,\
-                                        apertures)['aperture_sum']
+            positions['aperture_flux'] = aperture_photometry(residual_image,\
+                                         apertures)['aperture_sum']
 
         intab = Table(names=['x_0', 'y_0', 'flux_0'],
                       data=[positions['x_0'], positions['y_0'],
-                      positions['flux_0']])
+                      positions['aperture_flux']])
 
         star_groups = self.group(intab)
         outtab, residual_image = self.nstar(residual_image, star_groups)
@@ -303,7 +312,7 @@ class DAOPhotPSFPhotometry(PSFPhotometryBase):
         """
         Return the uncertainties on the fitted parameters
         """
-        pass
+        raise NotImplementedError
 
     def nstar(self, image, star_groups):
         """
