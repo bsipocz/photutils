@@ -2,9 +2,7 @@
 """Module which provides classes to perform PSF Photometry"""
 
 from __future__ import division
-import abc
 import numpy as np
-from astropy.extern import six
 from astropy.table import Table, vstack
 from astropy.modeling.fitting import LevMarLSQFitter
 from astropy.nddata.utils import overlap_slices, NoOverlapError
