@@ -3,7 +3,7 @@
 
 from __future__ import division
 import numpy as np
-from astropy.table import Table, vstack
+from astropy.table import Table, vstack, hstack
 from astropy.modeling.fitting import LevMarLSQFitter
 from astropy.nddata.utils import overlap_slices, NoOverlapError
 from astropy.stats import gaussian_sigma_to_fwhm
@@ -28,27 +28,17 @@ class DAOPhotPSFPhotometry(object):
         """
         Attributes
         ----------
-        find : callable or instance of any StarFinderBase subclasses
-            ``find`` should be able to identify stars, i.e. compute a rough
-            estimate of the centroids, in a given 2D image.
-            ``find`` receives as input a 2D image an return an
-            `~astropy.table.Table` object which contains columns with names:
-            ``id``, ``xcentroid``, ``ycentroid``, and ``flux``. In which
-            ``id`` is an interger-valued column starting from ``1``,
-            ``xcentroid`` and ``ycentroid`` are center position estimates of
-            the sources and ``flux`` contains flux estimates of the sources.
-            See, e.g., `~photutils.detection.DAOStarFinder`
-        group : callable or instance of any GroupStarsBase subclasses
-            ``group`` should be able to decide whether a given star overlaps
-            with any other and label them as beloging to the same group.
-            ``group`` receives as input an `~astropy.table.Table` object
-            with columns named as ``id``, ``x_0``, ``y_0``, in which ``x_0``
-            and ``y_0`` have the same meaning of ``xcentroid`` and
+        group : callable or instance of any `~photutils.psf.GroupStarsBase`
+            subclasses ``group`` should be able to decide whether a given star
+            overlaps with any other and label them as beloging to the same
+            group. ``group`` receives as input an `~astropy.table.Table`
+            object with columns named as ``id``, ``x_0``, ``y_0``, in which
+            ``x_0`` and ``y_0`` have the same meaning of ``xcentroid`` and
             ``ycentroid``. This callable must return an `~astropy.table.Table`
             with columns ``id``, ``x_0``, ``y_0``, and ``group_id``. The
             column ``group_id`` should cotain integers starting from ``1``
-            that indicate in which group a given source belongs to.
-            See, e.g., `~photutils.psf.DAOGroup`
+            that indicate which group a given source belongs to.
+            See, e.g., `~photutils.psf.DAOGroup`.
         bkg : callable or instance of any `~photutils.BackgroundBase`
             subclasses ``bkg`` should be able to compute either a scalar
             background or a 2D background of a given 2D image.
@@ -62,7 +52,6 @@ class DAOPhotPSFPhotometry(object):
             center in x and y coordinates and the flux) in order to set them
             to suitable starting values for each fit. The names of these
             parameters should be given as ``x_0``, ``y_0`` and ``flux``.
-
             `~photutils.psf.prepare_psf_model` can be used to prepare any 2D
             model to match this assumption.
         fitshape : array-like
@@ -70,6 +59,17 @@ class DAOPhotPSFPhotometry(object):
             to collect the data to do the fitting, e.g. (5, 5) means to take
             the following relative pixel positions: [-2, -1, 0, 1, 2].
             Also, each element of ``fitshape`` must be an odd number.
+        find : callable or instance of any
+        `~photutils.detection.StarFinderBase` subclasses (default=None)
+            ``find`` should be able to identify stars, i.e. compute a rough
+            estimate of the centroids, in a given 2D image.
+            ``find`` receives as input a 2D image an return an
+            `~astropy.table.Table` object which contains columns with names:
+            ``id``, ``xcentroid``, ``ycentroid``, and ``flux``. In which
+            ``id`` is an interger-valued column starting from ``1``,
+            ``xcentroid`` and ``ycentroid`` are center position estimates of
+            the sources and ``flux`` contains flux estimates of the sources.
+            See, e.g., `~photutils.detection.DAOStarFinder`.
         fitter : Fitter instance (default=LevMarLSQFitter())
             Fitter object used to compute the optimized centroid positions
             and/or flux of the identified sources. See
@@ -212,7 +212,8 @@ class DAOPhotPSFPhotometry(object):
         -------
         outtab : `~astropy.table.Table`
             Table with the photometry results, i.e., centroids and fluxes
-            estimations.
+            estimations and the initial estimates used to start the fitting
+            process.
         residual_image : array-like, `~astropy.io.fits.ImageHDU`,
         `~astropy.io.fits.HDUList`
             Residual image calculated by subtracting the fitted sources
@@ -231,9 +232,13 @@ class DAOPhotPSFPhotometry(object):
 
         if positions is None:
             outtab = Table([[], [], [], [], [], []],
-                           names=('id', 'group_id', 'x_fit', 'y_fit',
-                                  'flux_fit', 'iter_detected'),
-                           dtype=('i4', 'i4', 'f8', 'f8', 'f8', 'i4'))
+                           names=('id', 'group_id', 'iter_detected', 'x_fit',
+                                  'y_fit', 'flux_fit'),
+                           dtype=('i4', 'i4', 'i4', 'f8', 'f8', 'f8'))
+
+            intab = Table([[], [], []],
+                          names=('x_0', 'y_0', 'flux_0'),
+                          dtype=('f8', 'f8', 'f8'))
             
             sources = self.find(residual_image)
             
@@ -245,23 +250,32 @@ class DAOPhotPSFPhotometry(object):
                                                   apertures)['aperture_sum']
             n = 1
             while(n <= self.niters and len(sources) > 0):
-                intab = Table(names=['id', 'x_0', 'y_0', 'flux_0'],
-                              data=[sources['id'], sources['xcentroid'],
-                              sources['ycentroid'], sources['aperture_flux']])
-                star_groups = self.group(intab)
-                tab, residual_image = self.nstar(residual_image, star_groups)
-                tab['iter_detected'] = n*np.ones(tab['x_fit'].shape,
-                                                 dtype=np.int)
-                outtab = vstack([outtab, tab])
+                init_guess_tab = Table(names=['x_0', 'y_0', 'flux_0'],
+                                       data=[sources['xcentroid'],
+                                             sources['ycentroid'],
+                                             sources['aperture_flux']])
+                intab = vstack([intab, init_guess_tab])
+
+                star_groups = self.group(init_guess_tab)
+
+                result_tab, residual_image = self.nstar(residual_image,
+                                                        star_groups)
+                result_tab['iter_detected'] = n*np.ones(result_tab['x_fit'].shape,
+                                                        dtype=np.int)
+
+                outtab = vstack([outtab, result_tab])
+
                 sources = self.find(residual_image)
 
                 if len(sources) > 0:
                     apertures = CircularAperture((sources['xcentroid'],
                                                   sources['ycentroid']),
                                                  r=self.aperture_radius)
-                    sources['flux'] = aperture_photometry(residual_image,\
+                    sources['aperture_flux'] = aperture_photometry(residual_image,\
                                                 apertures)['aperture_sum']
                 n += 1
+
+            outtab = hstack([intab, outtab])
         else:
             if 'flux_0' not in positions.colnames:
                 apertures = CircularAperture((positions['x_0'],
@@ -277,6 +291,7 @@ class DAOPhotPSFPhotometry(object):
 
             star_groups = self.group(intab)
             outtab, residual_image = self.nstar(residual_image, star_groups)
+            outtab = hstack([intab, outtab])
 
         return outtab, residual_image
 
@@ -284,6 +299,7 @@ class DAOPhotPSFPhotometry(object):
         """
         Return the uncertainties on the fitted parameters
         """
+
         raise NotImplementedError
 
     def nstar(self, image, star_groups):

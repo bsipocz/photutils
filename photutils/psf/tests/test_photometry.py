@@ -32,7 +32,8 @@ else:
 class TestDAOPhotPSFPhotometry(object):
     def test_complete_photometry_one(self):
         """
-        Tests the whole photometry process.
+        Tests in an image with a group of two overlapped stars and an
+        isolated one.
         """
         sigma_psf = 2.0
         sources = Table()
@@ -68,7 +69,7 @@ class TestDAOPhotPSFPhotometry(object):
                                           fitter=LevMarLSQFitter(),
                                           niters=1, fitshape=(11,11))
 
-        result_tab, residual_image = photometry(image=image)
+        result_tab, residual_image = photometry(image)
 
         assert_allclose(result_tab['x_fit'], sources['x_mean'], rtol=1e-1)
         assert_allclose(result_tab['y_fit'], sources['y_mean'], rtol=1e-1)
@@ -86,7 +87,7 @@ class TestDAOPhotPSFPhotometry(object):
 
         pos = Table(names=['x_0', 'y_0'], data=[sources['x_mean'],
                                                 sources['y_mean']])
-        result_tab, residual_image = photometry(image=image, positions=pos)
+        result_tab, residual_image = photometry(image, pos)
 
         assert_array_equal(result_tab['x_fit'], sources['x_mean'])
         assert_array_equal(result_tab['y_fit'], sources['y_mean'])
@@ -95,8 +96,10 @@ class TestDAOPhotPSFPhotometry(object):
         assert_array_equal(result_tab['group_id'], sources['group_id'])
         assert_allclose(np.mean(residual_image), 0.0, atol=1e1)
 
-
     def test_complete_photometry_two(self):
+        """
+        Tests in an image with one single group with four stars.
+        """
         sigma_psf = 2.0
         sources = Table()
         sources['flux'] = [700, 800, 700, 800]
@@ -129,7 +132,7 @@ class TestDAOPhotPSFPhotometry(object):
                                     fitter=LevMarLSQFitter(),
                                     niters=1, fitshape=(11,11))
         
-        result_tab, residual_image = phot(image=image)
+        result_tab, residual_image = phot(image)
 
         assert_allclose(result_tab['x_fit'], sources['x_mean'], rtol=1e-1)
         assert_allclose(result_tab['y_fit'], sources['y_mean'], rtol=1e-1)
@@ -147,7 +150,7 @@ class TestDAOPhotPSFPhotometry(object):
 
         pos = Table(names=['x_0', 'y_0'], data=[sources['x_mean'],
                                                 sources['y_mean']])
-        result_tab, residual_image = phot(image=image, positions=pos)
+        result_tab, residual_image = phot(image, pos)
 
         assert_array_equal(result_tab['x_fit'], sources['x_mean'])
         assert_array_equal(result_tab['y_fit'], sources['y_mean'])
@@ -155,6 +158,7 @@ class TestDAOPhotPSFPhotometry(object):
         assert_array_equal(result_tab['id'], sources['id'])
         assert_array_equal(result_tab['group_id'], sources['group_id'])
         assert_allclose(np.mean(residual_image), 0.0, atol=1e1)
+        
 
 @pytest.mark.skipif('not HAS_SCIPY or not HAS_MIN_ASTROPY')
 class TestDAOPhotPSFPhotometryAttributes(object):
