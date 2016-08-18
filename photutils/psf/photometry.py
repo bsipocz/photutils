@@ -39,7 +39,7 @@ class DAOPhotPSFPhotometry(object):
             column ``group_id`` should cotain integers starting from ``1``
             that indicate which group a given source belongs to.
             See, e.g., `~photutils.psf.DAOGroup`.
-        bkg : callable or instance of any `~photutils.BackgroundBase` class
+        bkg : callable or instance of any `~photutils.BackgroundBase` subclasses
             ``bkg`` should be able to compute either a scalar background or a
             2D background of a given 2D image. See, e.g.,
             `~photutils.background.MedianBackground`.
@@ -59,8 +59,7 @@ class DAOPhotPSFPhotometry(object):
             to collect the data to do the fitting, e.g. (5, 5) means to take
             the following relative pixel positions: [-2, -1, 0, 1, 2].
             Also, each element of ``fitshape`` must be an odd number.
-        find : callable or instance of any
-        `~photutils.detection.StarFinderBase` subclasses (default=None)
+        find : callable or instance of any `~photutils.detection.StarFinderBase` subclasses
             ``find`` should be able to identify stars, i.e. compute a rough
             estimate of the centroids, in a given 2D image.
             ``find`` receives as input a 2D image an return an
@@ -70,7 +69,7 @@ class DAOPhotPSFPhotometry(object):
             ``xcentroid`` and ``ycentroid`` are center position estimates of
             the sources and ``flux`` contains flux estimates of the sources.
             See, e.g., `~photutils.detection.DAOStarFinder`.
-        fitter : `~astropy.modeling.Fitter` instance
+        fitter : `~astropy.modeling.fitting.Fitter` instance
             Fitter object used to compute the optimized centroid positions
             and/or flux of the identified sources. See
             `~astropy.modeling.fitting` for more details on fitters.
@@ -204,7 +203,7 @@ class DAOPhotPSFPhotometry(object):
         image : 2D array-like, `~astropy.io.fits.ImageHDU`,
         `~astropy.io.fits.HDUList`
             Image to perform photometry.
-        positions: `~astropy.table.Table` (default=None)
+        positions: `~astropy.table.Table`
             Positions (in pixel coordinates) at which to *start* the fit for
             each object. Columns 'x_0' and 'y_0' must be present.
             'flux_0' can also be provided to set initial fluxes.
