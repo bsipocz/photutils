@@ -39,10 +39,10 @@ class DAOPhotPSFPhotometry(object):
             column ``group_id`` should cotain integers starting from ``1``
             that indicate which group a given source belongs to.
             See, e.g., `~photutils.psf.DAOGroup`.
-        bkg : callable or instance of any `~photutils.BackgroundBase`
-            subclasses ``bkg`` should be able to compute either a scalar
-            background or a 2D background of a given 2D image.
-            See, e.g., `~photutils.background.MedianBackground`
+        bkg : callable or instance of any `~photutils.BackgroundBase` class
+            ``bkg`` should be able to compute either a scalar background or a
+            2D background of a given 2D image. See, e.g.,
+            `~photutils.background.MedianBackground`.
         psf : `astropy.modeling.Fittable2DModel` instance
             PSF or PRF model to fit the data. Could be one of the models in
             this package like `~photutils.psf.sandbox.DiscretePRF`,
@@ -70,14 +70,14 @@ class DAOPhotPSFPhotometry(object):
             ``xcentroid`` and ``ycentroid`` are center position estimates of
             the sources and ``flux`` contains flux estimates of the sources.
             See, e.g., `~photutils.detection.DAOStarFinder`.
-        fitter : Fitter instance (default=LevMarLSQFitter())
+        fitter : `~astropy.modeling.Fitter` instance
             Fitter object used to compute the optimized centroid positions
             and/or flux of the identified sources. See
             `~astropy.modeling.fitting` for more details on fitters.
-        niters : int (default=3)
+        niters : int
             Number of iterations to perform the loop FIND, GROUP, SUBTRACT,
             NSTAR.
-        aperture_radius : float (default=None)
+        aperture_radius : float
             The radius (in units of pixels) used to compute initial estimates
             for the fluxes of sources. If ``None``, one fwhm will be used. 
 
@@ -193,8 +193,9 @@ class DAOPhotPSFPhotometry(object):
         by ``group``. Also, ``image`` is not assumed to be background
         subtracted.
         If positions are not ``None`` then this method performs forced PSF
-        photometry. If the centroid positions are set
-        as ``fixed`` in the PSF model ``psf``, then the optimizer will only
+        photometry, i.e., the positions are assumed to be known with high
+        accuracy and only fluxes are fitted. If the centroid positions are
+        set as ``fixed`` in the PSF model ``psf``, then the optimizer will only
         consider the flux as a variable. Otherwise, ``positions`` will be used
         as initial guesses for the centroids.
 
