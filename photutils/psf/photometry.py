@@ -387,14 +387,14 @@ class DAOPhotPSFPhotometry(object):
         if np.size(fit_model) == 1:
             param_tab.add_row([[star_group['id'][0]],
                                [star_group['group_id'][0]],
-                               [getattr(fit_model,'x_0').value],
+                               [getattr(fit_model, 'x_0').value],
                                [getattr(fit_model, 'y_0').value],
                                [getattr(fit_model, 'flux').value]])
         else:
             for i in range(np.size(fit_model)):
                 param_tab.add_row([[star_group['id'][i]],
                                    [star_group['group_id'][i]],
-                                   [getattr(fit_model,'x_0_'+str(i)).value],
+                                   [getattr(fit_model, 'x_0_'+str(i)).value],
                                    [getattr(fit_model, 'y_0_'+str(i)).value],
                                    [getattr(fit_model, 'flux_'+str(i)).value]])
         return param_tab

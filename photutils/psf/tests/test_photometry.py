@@ -28,7 +28,7 @@ else:
     HAS_MIN_ASTROPY = True
     
 
-@pytest.mark.skipif('not HAS_SCIPY or not HAS_MIN_ASTROPY')
+@pytest.mark.skipif('not HAS_SCIPY')
 class TestDAOPhotPSFPhotometry(object):
     def test_complete_photometry_one(self):
         """
@@ -160,7 +160,7 @@ class TestDAOPhotPSFPhotometry(object):
         assert_allclose(np.mean(residual_image), 0.0, atol=1e1)
         
 
-@pytest.mark.skipif('not HAS_SCIPY or not HAS_MIN_ASTROPY')
+@pytest.mark.skipif('not HAS_SCIPY')
 class TestDAOPhotPSFPhotometryAttributes(object):
     
     daofind = DAOStarFinder(threshold=5.0,
