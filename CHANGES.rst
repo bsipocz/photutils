@@ -40,6 +40,9 @@ New Features
   - Added the ``param_uncert`` keyword to ``psf_photometry`` so that
     users can easily get uncertainties on fitted parameters. [#376]
 
+  - Added ``DAOPhotPSFPhotometry`` class to perform PSF photometry in
+    crowded fields. [#385]
+
 - ``photutils.segmentation``
 
   - Added ``copy`` and ``area`` methods and a ``areas`` property to
