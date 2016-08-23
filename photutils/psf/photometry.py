@@ -5,10 +5,15 @@ from __future__ import division
 import numpy as np
 from astropy.table import Table, vstack, hstack
 from astropy.modeling.fitting import LevMarLSQFitter
-from astropy.nddata.utils import overlap_slices, NoOverlapError
+from astropy.nddata.utils import overlap_slices
 from astropy.stats import gaussian_sigma_to_fwhm
 from ..psf import subtract_psf
 from ..aperture import CircularAperture, aperture_photometry
+
+try:
+    from astropy.nddata.utils import NoOverlapError
+except ImportError:
+    raise ImportError("astropy 1.2.1 is required in order to use this class.")
 
 
 __all__ = ['DAOPhotPSFPhotometry']
