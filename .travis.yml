@@ -31,8 +31,8 @@ env:
         - NUMPY_VERSION=stable
         - ASTROPY_VERSION=stable
         - SETUP_CMD='test'
-        - PIP_DEPENDENCIES='scipy'
-        - CONDA_DEPENDENCIES='Cython scikit-image matplotlib'
+        - PIP_DEPENDENCIES='scipy scikit-image'
+        - CONDA_DEPENDENCIES='Cython matplotlib'
         - CONDA_CHANNELS='astropy-ci-extras'
         - SETUP_XVFB=True
 
