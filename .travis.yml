@@ -32,7 +32,7 @@ env:
         - ASTROPY_VERSION=stable
         - SETUP_CMD='test'
         - PIP_DEPENDENCIES=''
-        - CONDA_DEPENDENCIES='Cython scipy scikit-image matplotlib'
+        - CONDA_DEPENDENCIES='Cython scipy scikit-image matplotlib nomkl'
         - CONDA_CHANNELS='astropy-ci-extras'
         - SETUP_XVFB=True
         - EVENT_TYPE='pull_request push'
@@ -53,9 +53,6 @@ matrix:
           env: NUMPY_VERSION=prerelease
                EVENT_TYPE='pull_request push cron'
 
-before_install:
-    - conda install nomkl
-    - pip install -I --pre --upgrade numpy
 install:
     - git clone git://github.com/astropy/ci-helpers.git
     - source ci-helpers/travis/setup_conda_$TRAVIS_OS_NAME.sh
