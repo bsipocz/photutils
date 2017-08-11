@@ -6,7 +6,19 @@ from astropy.tests.pytest_plugins import *
 
 # Uncomment the following line to treat all DeprecationWarnings as
 # exceptions
-enable_deprecations_as_exceptions()
+#
+# To support astropy <2.0.2 and pytest 3.2+
+_warnings = {
+    (2, 7): set([
+        r"AttributeError: 'NoneType' object has no attribute 'lineno'",]),
+    (3, 4): set([
+        r"AttributeError: 'NoneType' object has no attribute 'lineno'",]),
+    (3, 5): set([
+        r"AttributeError: 'NoneType' object has no attribute 'lineno'",]),
+    (3, 6): set([
+        r"AttributeError: 'NoneType' object has no attribute 'lineno'",])}
+
+enable_deprecations_as_exceptions(warnings_to_ignore_by_pyver=_warnings)
 
 # Uncomment and customize the following lines to add/remove entries from
 # the list of packages for which version numbers are displayed when running
