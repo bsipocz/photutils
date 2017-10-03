@@ -107,7 +107,7 @@ matrix:
           env: MAIN_CMD='pycodestyle photutils --count' SETUP_CMD=''
 
 install:
-    - git clone git://github.com/astropy/ci-helpers.git
+    - git clone -b conda_pin_4327 git://github.com/bsipocz/ci-helpers.git
     - source ci-helpers/travis/setup_conda.sh
 
 script:
