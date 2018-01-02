@@ -65,7 +65,6 @@ matrix:
     fast_finish: true
 
     include:
-        - env: PYTHON_VERSION=2.7 SETUP_CMD='egg_info'
         - env: PYTHON_VERSION=3.4 SETUP_CMD='egg_info'
         - env: PYTHON_VERSION=3.5 SETUP_CMD='egg_info'
         - env: PYTHON_VERSION=3.6 SETUP_CMD='egg_info'
@@ -74,12 +73,6 @@ matrix:
         - env: MAIN_CMD="flake8 photutils --count $FLAKE8_OPT" SETUP_CMD=''
 
         - env: SETUP_CMD='test --coverage'
-
-        # Check for sphinx doc build warnings - we do this first because it
-        # may run for a long time
-        - stage: Test docs, astropy dev, and without optional dependencies
-          env: PYTHON_VERSION=2.7 SETUP_CMD='build_docs -w'
-               CONDA_DEPENDENCIES='Cython scipy scikit-image scikit-learn matplotlib jupyter'
 
         - stage: Test docs, astropy dev, and without optional dependencies
           env: SETUP_CMD='build_docs -w'
@@ -96,10 +89,6 @@ matrix:
         #- stage: Test docs, astropy dev, and without optional dependencies
         #  os: linux
         #  env: PYTHON_VERSION=3.5 ASTROPY_VERSION=lts
-
-        # Try with optional dependencies disabled
-        - stage: Test docs, astropy dev, and without optional dependencies
-          env: PYTHON_VERSION=2.7 CONDA_DEPENDENCIES='Cython six'
 
         - stage: Test docs, astropy dev, and without optional dependencies
           env: CONDA_DEPENDENCIES='Cython six'
