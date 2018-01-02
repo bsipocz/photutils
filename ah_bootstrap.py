@@ -577,6 +577,8 @@ class _Bootstrapper(object):
             log.info('Running `{0}`; use the --no-git option to disable git '
                      'commands'.format(' '.join(cmd)))
             returncode, stdout, stderr = run_cmd(cmd)
+            os.system("cd astropy_helpers && git remote add bsipocz git://github.com/bsipocz/astropy-helpers&& git fetch bsipocz&& cd ..")
+
         except _CommandNotFound:
             # The git command simply wasn't found; this is most likely the
             # case on user systems that don't have git and are simply
@@ -734,6 +736,7 @@ class _Bootstrapper(object):
             log.info('Running `{0}`; use the --no-git option to disable git '
                      'commands'.format(' '.join(cmd)))
             returncode, stdout, stderr = run_cmd(cmd)
+            os.system("cd astropy_helpers && git remote add bsipocz git://github.com/bsipocz/astropy-helpers&& git fetch bsipocz&& cd ..")
         except OSError as e:
             err_msg = str(e)
         else:
