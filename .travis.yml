@@ -66,61 +66,11 @@ matrix:
     include:
         - env: PYTHON_VERSION=3.7 SETUP_CMD='egg_info'
 
-        # PEP8/pyflakes test with flake8
-        - env: MAIN_CMD="flake8 photutils --count $FLAKE8_OPT" SETUP_CMD=''
-
-        # All tests (with remote data) and coverage checks with the
-        # latest Python version.  The duration of the slowest 50 tests
-        # will also be listed.
-        - env: SETUP_CMD='test --coverage --remote-data=astropy -a "--durations=50"'
-               NUMPY_VERSION=1.14
-
-        # Check for Sphinx doc build warnings
-        - env: SETUP_CMD='build_docs -w'
-               PIP_DEPENDENCIES='sphinx-astropy'
-               EVENT_TYPE='push pull_request cron'
-
-        # Test with optional dependencies disabled
-        - env: CONDA_DEPENDENCIES=$CONDA_REQUIRED_DEPENDENCIES
-
         # Test with Astropy dev version and the latest Python
         - stage: Comprehensive tests
           env: ASTROPY_VERSION=development
                EVENT_TYPE='pull_request push cron'
-
-        # Test with Astropy LTS version and the latest Python
-        - stage: Comprehensive tests
-          env: ASTROPY_VERSION=lts
-               EVENT_TYPE='pull_request push cron'
-               NUMPY_VERSION=1.13
-               PIP_DEPENDENCIES='pytest<3.10'
-
-        # Test with other Python and numpy versions
-        - stage: Comprehensive tests
-          env: PYTHON_VERSION=3.7
-
-        - stage: Comprehensive tests
-          env: PYTHON_VERSION=3.5 NUMPY_VERSION=1.10
-
-        - stage: Comprehensive tests
-          env: NUMPY_VERSION=1.11
-
-        - stage: Comprehensive tests
-          env: NUMPY_VERSION=1.12
-
-        # Test with numpy pre-release version
-        - stage: Comprehensive tests
-          env: NUMPY_VERSION=prerelease
-               EVENT_TYPE='push pull_request cron'
-
-        # Test with MacOS X
-        - stage: Cron tests
-          os: osx
-          env: SETUP_CMD='test' EVENT_TYPE='cron'
-
-    allow_failures:
-        - env: NUMPY_VERSION=prerelease
-               EVENT_TYPE='push pull_request cron'
+               PIP_DEPENDENCIES='https://github.com/bsipocz/astropy/archive/testing_header_print_actual_helpers.zip'
 
 install:
     - git clone git://github.com/astropy/ci-helpers.git
